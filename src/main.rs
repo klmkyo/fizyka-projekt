@@ -1,4 +1,6 @@
 use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell};
+use futures::executor::block_on;
+use macroquad::prelude::*;
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -14,12 +16,23 @@ struct XY<T> {
     y: T,
 }
 
+impl XY<f64> {
+    fn length(&self) -> f64 {
+        (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+    fn normalize(&self) -> Self {
+        let length = self.length();
+        XY { x: self.x / length, y: self.y / length }
+    }
+}
+
 struct MovableCharge {
     x: f64,
     y: f64,
     q: f64,
     m: f64,
-    v: XY<f64>
+    v: XY<f64>,
+    a: XY<f64>,
 }
 
 #[derive(Clone)]
@@ -102,7 +115,7 @@ impl CellGrid {
         CellGrid { cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
     }
     fn new_from_file(file: &str) -> Self {
-        let mut grid = CellGrid::new(32, 32);
+        let mut grid = CellGrid::new(256, 256);
 
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
         let mut lines = contents.lines();
@@ -170,14 +183,13 @@ impl CellGrid {
     }
     fn update_movable_charges(&mut self, delta_t: f64) {
         for movable_charge in &mut self.movable_charges {
-            let mut a = XY { x: 0.0, y: 0.0 };
             let intensity = field_intensity_movable(movable_charge.x, movable_charge.y, &self.stationary_charges);
             
-            a.x = intensity.x * movable_charge.q / movable_charge.m;
-            a.y = intensity.y * movable_charge.q / movable_charge.m;
+            movable_charge.a.x = intensity.x * movable_charge.q / movable_charge.m;
+            movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
 
-            movable_charge.v.x += a.x * delta_t;
-            movable_charge.v.y += a.y * delta_t;
+            movable_charge.v.x += movable_charge.a.x * delta_t;
+            movable_charge.v.y += movable_charge.a.y * delta_t;
 
             movable_charge.x += movable_charge.v.x * delta_t;
             movable_charge.y += movable_charge.v.y * delta_t;
@@ -185,8 +197,52 @@ impl CellGrid {
     }
 }
 
+async fn macroquad_display(cellgrid: &mut CellGrid) {
+    loop {
+        cellgrid.update_movable_charges(0.15);
 
-fn main() {
+        // fit the grid to the screen
+        let scale_x = screen_width() / (cellgrid.cells.len() as f32);
+        let scale_y = screen_height() / (cellgrid.cells[0].len() as f32);
+        
+        clear_background(BLACK);
+        // display intensity
+        for (y, row) in cellgrid.cells.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: cell.e as f32, g: cell.e as f32, b: cell.e as f32, a: 255.0 });
+            }
+        }
+        // display stationary charges
+        for charge in &cellgrid.stationary_charges {
+            draw_circle(charge.x as f32 * scale_x + scale_x/2.0, charge.y as f32 * scale_y + scale_y/2.0, 5.0, RED);
+        }
+        // display movable charges and draw force vectors as arrows
+        for charge in &cellgrid.movable_charges {
+            draw_circle(charge.x as f32 * scale_x, charge.y as f32 * scale_y, 5.0, GREEN);
+
+            // draw force vector
+            let fx = charge.m * charge.a.x * 100.0;
+            let fy = charge.m * charge.a.y * 100.0;
+            draw_line(charge.x as f32 * scale_x, charge.y as f32 * scale_y, charge.x as f32 * scale_x + fx as f32 * scale_x, charge.y as f32 * scale_y + fy as f32 * scale_y, 1.0, YELLOW);
+
+            // draw velocity vector
+            let vx = charge.v.x * 4.0;
+            let vy = charge.v.y * 4.0;
+            draw_line(charge.x as f32 * scale_x, charge.y as f32 * scale_y, charge.x as f32 * scale_x + vx as f32 * scale_x, charge.y as f32 * scale_y + vy as f32 * scale_y, 1.0, BLUE);
+
+            // show charge values above the charge (rounded to 2 decimal places)
+            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2}), a: ({:.2}, {:.2})", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.a.x, charge.a.y), charge.x as f32 * scale_x, charge.y as f32 * scale_y - 20.0, 10.0, WHITE);
+        }
+
+        // show fps
+        draw_text(&format!("FPS: {}", get_fps()), 10.0, 10.0, 20.0, WHITE);
+
+        next_frame().await
+    }
+}
+
+#[macroquad::main("BasicShapes")]
+async fn main() {
     let mut cellgrid = CellGrid::new_from_file("ładunki.txt");
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
@@ -197,20 +253,24 @@ fn main() {
     cellgrid.populate_field();
     let populate_time = start.elapsed().as_micros();
     cellgrid.save_to_file("output.txt");
-    cellgrid.display_potential_color();
+    // cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 1.0, y: 1.0 } });
+    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 1.0, y: 1.0 }, a: XY { x: 0.0, y: 0.0 } });
 
-    let delta_t = 0.1;
-    // simulate charge movement for 10 seconds
-    for _ in 0..100 {
-        cellgrid.update_movable_charges(delta_t);
-        // print the charge position
-        for charge in &cellgrid.movable_charges {
-            println!("x: {}, y: {}", charge.x, charge.y);
-        }
-    }
+
+    macroquad_display(&mut cellgrid).await;
+
+
+    // let delta_t = 0.1;
+    // // simulate charge movement for 10 seconds
+    // for _ in 0..100 {
+    //     cellgrid.update_movable_charges(delta_t);
+    //     // print the charge position
+    //     for charge in &cellgrid.movable_charges {
+    //         println!("x: {}, y: {}", charge.x, charge.y);
+    //     }
+    // }
 
 
 
