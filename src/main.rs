@@ -1,5 +1,4 @@
-use core::num;
-use std::{fs, str::FromStr, io::Write, f64::INFINITY, fmt};
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant};
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -55,9 +54,9 @@ fn parse_charges(file: &str) -> Vec<StationaryCharge> {
             panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);
         }
         // read the values, and in case of error, print the line number
-        let x = parts[0].parse().expect(&format!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
-        let y = parts[1].parse().expect(&format!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
-        let q = parts[2].parse().expect(&format!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
+        let x = parts[0].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
+        let y = parts[1].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
+        let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
         charges.push(StationaryCharge { x, y, q });
     }
     if charges.len() as i32 != linecount {
@@ -113,6 +112,7 @@ fn main() {
     // create 2d vector of cells (256x256)
     let mut cells = vec![vec![Cell { ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; 32]; 32];
 
+    let start = Instant::now();
     // calculate field intensity for each cell
     for (y, row) in cells.iter_mut().enumerate() {
         for (x, cell) in row.iter_mut().enumerate() {
@@ -123,17 +123,25 @@ fn main() {
             cell.v = cell_data.potential;
         }
     }
+    let duration = start.elapsed();
+    println!("Czas obliczeń natężenia i potencjału: {}ms ({}µs)", duration.as_millis(), duration.as_micros());
 
     // print the field intensity for each cell
     // also save to file in format: x, y, charge, Ex, Ey, E, V
-    let output_file = fs::File::create("output.txt").expect("Nie można utworzyć pliku");
+    let mut output_file = fs::File::create("output.txt").expect("Nie można utworzyć pliku");
     for (y, row) in cells.iter().enumerate() {
         for (x, cell) in row.iter().enumerate() {
             print_color(cell.e);
-            // print x, y
+
+            output_file.write_all(format!("{}, {}, {}, {}, {}, {}, {}\n", x, y, 0, cell.ex, cell.ey, cell.e, cell.v).as_bytes()).expect("Nie można zapisać do pliku");
         }
         println!()
     }
+    // remove the last newline
+    // output_file.seek(SeekFrom::End(-1)).expect("Nie można przesunąć kursora");
+    // output_file.set_len(output_file.stream_position().expect("Nie można odczytać pozycji kursora")).expect("Nie można zmienić długości pliku");
+    // // close the file
+    // output_file.sync_all().expect("Nie można zapisać do pliku");
 
     // todo!();
 
