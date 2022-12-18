@@ -19,8 +19,7 @@ struct MovableCharge {
     y: f64,
     q: f64,
     m: f64,
-    v: XY<f64>,
-    a: XY<f64>,
+    v: XY<f64>
 }
 
 #[derive(Clone)]
@@ -144,6 +143,20 @@ impl CellGrid {
             println!();
         }
     }
+    fn add_movable_charge(&mut self, charge: MovableCharge) {
+        self.movable_charges.push(charge);
+    }
+    fn update_movable_charges(&mut self) {
+        for charge in &mut self.movable_charges {
+            let cell_data = field_intensity_potential(charge.x as usize, charge.y as usize, &self.stationary_charges);
+            let force = XY { x: cell_data.intensity.x * charge.q, y: cell_data.intensity.y * charge.q };
+            let acceleration = XY { x: force.x / charge.m, y: force.y / charge.m };
+            charge.v.x += acceleration.x;
+            charge.v.y += acceleration.y;
+            charge.x += charge.v.x;
+            charge.y += charge.v.y;
+        }
+    }
 }
 
 
@@ -161,7 +174,8 @@ fn main() {
     cellgrid.display_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-    // todo!();
+    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.0, y: 0.0 } });
+
 
     // let mut charge: Charge;
     // println!("Podaj dane ładunku: ");
