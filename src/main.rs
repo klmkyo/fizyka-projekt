@@ -43,29 +43,43 @@ struct StationaryCharge {
     q: f64,
 }
 
-fn field_intensity_potential(x: usize, y: usize, charges: &Vec<StationaryCharge>) -> CellData {
+fn field_intensity_potential(x: usize, y: usize, stationary_charges: &Vec<StationaryCharge>) -> CellData {
     let mut intensity = XY { x: 0.0, y: 0.0 };
     let mut potential = 0.0;
-    for charge in charges {
-        let r = (((x as i32 - charge.x as i32).pow(2) + (y as i32 - charge.y as i32).pow(2)) as f64).sqrt();
+    for stationary_charge in stationary_charges {
+        let r = (((x as i32 - stationary_charge.x as i32).pow(2) + (y as i32 - stationary_charge.y as i32).pow(2)) as f64).sqrt();
 
         if r == 0.0 {
             return CellData { intensity: XY { x: INFINITY, y: INFINITY }, potential: INFINITY };
         }
 
-        intensity.x += (charge.q * (x as i32 - charge.x as i32) as f64) / (r.powi(3));
-        intensity.y += (charge.q * (y as i32 - charge.y as i32) as f64) / (r.powi(3));
-        potential += charge.q / r;
+        intensity.x += (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(3));
+        intensity.y += (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(3));
+        potential += stationary_charge.q / r;
     }
     CellData { intensity, potential }
 }
 
+fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
+    let mut intensity = XY { x: 0.0, y: 0.0 };
+    for stationary_charge in stationary_charges {
+        let r = (((x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2)) as f64).sqrt();
+        if r == 0.0 {
+            return XY { x: INFINITY, y: INFINITY };
+        }
+        intensity.x += (stationary_charge.q * (x - stationary_charge.x as f64)) / (r.powi(3));
+        intensity.y += (stationary_charge.q * (y - stationary_charge.y as f64)) / (r.powi(3));
+    }
+    intensity
+}
+
 // print a number, colored based on its value (green, yellow, red), also handle NaN
 // limit the string to 4 characters
-fn print_color(number: f64) {
+#[inline(always)]
+fn print_color(number: f64, max_g: f64, max_y: f64) {
     let color = match number {
-        x if x < 0.1 => 32,
-        x if x < 0.5 => 33,
+        x if x < max_g => 32,
+        x if x < max_y => 33,
         _ => 31,
     };
     if number.is_infinite() {
@@ -135,10 +149,18 @@ impl CellGrid {
         // close the file
         output_file.flush().expect("Nie można wyczyścić bufora");
     }
-    fn display_color(&self) {
+    fn display_intensity_color(&self) {
         for row in &self.cells {
             for cell in row {
-                print_color(cell.e);
+                print_color(cell.e, 0.1, 0.5);
+            }
+            println!();
+        }
+    }
+    fn display_potential_color(&self) {
+        for row in &self.cells {
+            for cell in row {
+                print_color(cell.v, 0.1, 0.5);
             }
             println!();
         }
@@ -146,15 +168,19 @@ impl CellGrid {
     fn add_movable_charge(&mut self, charge: MovableCharge) {
         self.movable_charges.push(charge);
     }
-    fn update_movable_charges(&mut self) {
-        for charge in &mut self.movable_charges {
-            let cell_data = field_intensity_potential(charge.x as usize, charge.y as usize, &self.stationary_charges);
-            let force = XY { x: cell_data.intensity.x * charge.q, y: cell_data.intensity.y * charge.q };
-            let acceleration = XY { x: force.x / charge.m, y: force.y / charge.m };
-            charge.v.x += acceleration.x;
-            charge.v.y += acceleration.y;
-            charge.x += charge.v.x;
-            charge.y += charge.v.y;
+    fn update_movable_charges(&mut self, delta_t: f64) {
+        for movable_charge in &mut self.movable_charges {
+            let mut a = XY { x: 0.0, y: 0.0 };
+            let intensity = field_intensity_movable(movable_charge.x, movable_charge.y, &self.stationary_charges);
+            
+            a.x = intensity.x * movable_charge.q / movable_charge.m;
+            a.y = intensity.y * movable_charge.q / movable_charge.m;
+
+            movable_charge.v.x += a.x * delta_t;
+            movable_charge.v.y += a.y * delta_t;
+
+            movable_charge.x += movable_charge.v.x * delta_t;
+            movable_charge.y += movable_charge.v.y * delta_t;
         }
     }
 }
@@ -171,7 +197,7 @@ fn main() {
     cellgrid.populate_field();
     let populate_time = start.elapsed().as_micros();
     cellgrid.save_to_file("output.txt");
-    cellgrid.display_color();
+    cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
     cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.0, y: 0.0 } });
