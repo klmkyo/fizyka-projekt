@@ -80,12 +80,13 @@ fn print_color(number: f64) {
 struct CellGrid {
     cells: Vec<Vec<Cell>>,
     stationary_charges: Vec<StationaryCharge>,
+    movable_charges: Vec<MovableCharge>,
 }
 
 impl CellGrid {
     fn new(x: usize, y: usize) -> Self {
         let cells = vec![vec![Cell { q: 0.0, ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; x]; y];
-        CellGrid { cells, stationary_charges: Vec::new() }
+        CellGrid { cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
     }
     fn new_from_file(file: &str) -> Self {
         let mut grid = CellGrid::new(32, 32);
@@ -121,6 +122,28 @@ impl CellGrid {
             }
         }
     }
+    fn save_to_file(&self, file: &str) {
+        let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
+        for (y, row) in self.cells.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                // format: x, y, charge, Ex, Ey, E, V
+                writeln!(output_file, "{}, {}, {}, {}, {}, {}, {}", x, y, cell.q, cell.ex, cell.ey, cell.e, cell.v).expect("Nie można zapisać do pliku");
+            }
+        }
+        // remove the last newline
+        output_file.seek(SeekFrom::End(-1)).expect("Nie można przesunąć kursora");
+        output_file.set_len((&output_file).stream_position().expect("Nie można odczytać pozycji kursora")).expect("Nie można zmienić długości pliku");
+        // close the file
+        output_file.flush().expect("Nie można wyczyścić bufora");
+    }
+    fn display_color(&self) {
+        for row in &self.cells {
+            for cell in row {
+                print_color(cell.e);
+            }
+            println!();
+        }
+    }
 }
 
 
@@ -133,25 +156,10 @@ fn main() {
 
     let start = Instant::now();
     cellgrid.populate_field();
-    let duration = start.elapsed();
-    println!("Czas obliczeń natężenia i potencjału: {}ms ({}µs)", duration.as_millis(), duration.as_micros());
-
-    // print the field intensity for each cell
-    // also save to file in format: x, y, charge, Ex, Ey, E, V
-    let mut output_file = fs::File::create("output.txt").expect("Nie można utworzyć pliku");
-    for (y, row) in cellgrid.cells.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
-            print_color(cell.e);
-
-            output_file.write_all(format!("{}, {}, {}, {}, {}, {}, {}\n", x, y, 0, cell.ex, cell.ey, cell.e, cell.v).as_bytes()).expect("Nie można zapisać do pliku");
-        }
-        println!()
-    }
-    // remove the last newline
-    // output_file.seek(SeekFrom::End(-1)).expect("Nie można przesunąć kursora");
-    // output_file.set_len(output_file.stream_position().expect("Nie można odczytać pozycji kursora")).expect("Nie można zmienić długości pliku");
-    // // close the file
-    // output_file.sync_all().expect("Nie można zapisać do pliku");
+    let populate_time = start.elapsed().as_micros();
+    cellgrid.save_to_file("output.txt");
+    cellgrid.display_color();
+    println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
     // todo!();
 
