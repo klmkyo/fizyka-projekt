@@ -1,4 +1,5 @@
-use std::{fs, str::FromStr, io::Write};
+use core::num;
+use std::{fs, str::FromStr, io::Write, f64::INFINITY, fmt};
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -75,6 +76,11 @@ fn field_intensity_potential(x: f64, y: f64, charges: &Vec<StationaryCharge>) ->
     let mut potential = 0.0;
     for charge in charges {
         let r = ((x - charge.x).powi(2) + (y - charge.y).powi(2)).sqrt();
+
+        if r == 0.0 {
+            return CellData { intensity: XY { x: INFINITY, y: INFINITY }, potential: INFINITY };
+        }
+
         intensity.x += (charge.q * (x - charge.x)) / (r.powi(3));
         intensity.y += (charge.q * (y - charge.y)) / (r.powi(3));
         potential += charge.q / r;
@@ -82,14 +88,19 @@ fn field_intensity_potential(x: f64, y: f64, charges: &Vec<StationaryCharge>) ->
     CellData { intensity, potential }
 }
 
-// print a number, colored based on its value (green, yellow, red)
+// print a number, colored based on its value (green, yellow, red), also handle NaN
+// limit the string to 4 characters
 fn print_color(number: f64) {
     let color = match number {
         x if x < 0.1 => 32,
         x if x < 0.5 => 33,
         _ => 31,
     };
-    print!("\x1b[{}m{:.2}\x1b[0m ", color, number);
+    if number.is_infinite() {
+        print!("\x1b[0mINF!\x1b[0m ");
+    } else {
+        print!("\x1b[{}m{:.2}\x1b[0m ", color, number);
+    }
 }
 
 fn main() {
@@ -103,23 +114,23 @@ fn main() {
     let mut cells = vec![vec![Cell { ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; 32]; 32];
 
     // calculate field intensity for each cell
-    for (x, row) in cells.iter_mut().enumerate() {
-        for (y, cell) in row.iter_mut().enumerate() {
+    for (y, row) in cells.iter_mut().enumerate() {
+        for (x, cell) in row.iter_mut().enumerate() {
             let cell_data = field_intensity_potential(x as f64, y as f64, &charges);
             cell.ex = cell_data.intensity.x;
             cell.ey = cell_data.intensity.y;
             cell.e = (cell_data.intensity.x.powi(2) + cell_data.intensity.y.powi(2)).sqrt();
-            // check for NaN
-            // if cell.e.is_nan() {
-            // }
             cell.v = cell_data.potential;
         }
     }
 
     // print the field intensity for each cell
-    for row in &cells {
-        for cell in row {
+    // also save to file in format: x, y, charge, Ex, Ey, E, V
+    let output_file = fs::File::create("output.txt").expect("Nie można utworzyć pliku");
+    for (y, row) in cells.iter().enumerate() {
+        for (x, cell) in row.iter().enumerate() {
             print_color(cell.e);
+            // print x, y
         }
         println!()
     }
