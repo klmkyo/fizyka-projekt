@@ -1,4 +1,4 @@
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant};
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell};
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -9,33 +9,23 @@ fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fm
     x
 }
 
-struct XY {
-    x: f64,
-    y: f64,
+struct XY<T> {
+    x: T,
+    y: T,
 }
 
-struct Charge {
+struct MovableCharge {
     x: f64,
     y: f64,
     q: f64,
     m: f64,
-    v: XY,
-    a: XY,
+    v: XY<f64>,
+    a: XY<f64>,
 }
 
-struct StationaryCharge {
-    x: f64,
-    y: f64,
-    q: f64,
-}
-
-impl std::fmt::Display for StationaryCharge {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "x: {}, y: {}, q: {}", self.x, self.y, self.q)
-    }
-}
 #[derive(Clone)]
 struct Cell {
+    q: f64,
     ex: f64,
     ey: f64,
     e: f64,
@@ -43,45 +33,29 @@ struct Cell {
     v: f64,
 }
 
-fn parse_charges(file: &str) -> Vec<StationaryCharge> {
-    let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
-    let mut charges = Vec::new();
-    let mut lines = contents.lines();
-    let linecount: i32 = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
-    for (i, line) in lines.enumerate() {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() != 3 {
-            panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);
-        }
-        // read the values, and in case of error, print the line number
-        let x = parts[0].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
-        let y = parts[1].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
-        let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
-        charges.push(StationaryCharge { x, y, q });
-    }
-    if charges.len() as i32 != linecount {
-        panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
-    }
-    charges
-}
-
 struct CellData {
-    intensity: XY,
+    intensity: XY<f64>,
     potential: f64,
 }
 
-fn field_intensity_potential(x: f64, y: f64, charges: &Vec<StationaryCharge>) -> CellData {
+struct StationaryCharge {
+    x: usize,
+    y: usize,
+    q: f64,
+}
+
+fn field_intensity_potential(x: usize, y: usize, charges: &Vec<StationaryCharge>) -> CellData {
     let mut intensity = XY { x: 0.0, y: 0.0 };
     let mut potential = 0.0;
     for charge in charges {
-        let r = ((x - charge.x).powi(2) + (y - charge.y).powi(2)).sqrt();
+        let r = (((x as i32 - charge.x as i32).pow(2) + (y as i32 - charge.y as i32).pow(2)) as f64).sqrt();
 
         if r == 0.0 {
             return CellData { intensity: XY { x: INFINITY, y: INFINITY }, potential: INFINITY };
         }
 
-        intensity.x += (charge.q * (x - charge.x)) / (r.powi(3));
-        intensity.y += (charge.q * (y - charge.y)) / (r.powi(3));
+        intensity.x += (charge.q * (x as i32 - charge.x as i32) as f64) / (r.powi(3));
+        intensity.y += (charge.q * (y as i32 - charge.y as i32) as f64) / (r.powi(3));
         potential += charge.q / r;
     }
     CellData { intensity, potential }
@@ -102,34 +76,70 @@ fn print_color(number: f64) {
     }
 }
 
-fn main() {
-    let charges = parse_charges("ładunki.txt");
-    println!("Odczytane ładunki:");
-    for charge in &charges {
-        println!("{}", charge);
+// create a struct called CellGrid, which is a 2d vector of Cells
+struct CellGrid {
+    cells: Vec<Vec<Cell>>,
+    stationary_charges: Vec<StationaryCharge>,
+}
+
+impl CellGrid {
+    fn new(x: usize, y: usize) -> Self {
+        let cells = vec![vec![Cell { q: 0.0, ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; x]; y];
+        CellGrid { cells, stationary_charges: Vec::new() }
     }
+    fn new_from_file(file: &str) -> Self {
+        let mut grid = CellGrid::new(32, 32);
 
-    // create 2d vector of cells (256x256)
-    let mut cells = vec![vec![Cell { ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; 32]; 32];
-
-    let start = Instant::now();
-    // calculate field intensity for each cell
-    for (y, row) in cells.iter_mut().enumerate() {
-        for (x, cell) in row.iter_mut().enumerate() {
-            let cell_data = field_intensity_potential(x as f64, y as f64, &charges);
-            cell.ex = cell_data.intensity.x;
-            cell.ey = cell_data.intensity.y;
-            cell.e = (cell_data.intensity.x.powi(2) + cell_data.intensity.y.powi(2)).sqrt();
-            cell.v = cell_data.potential;
+        let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
+        let mut lines = contents.lines();
+        let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
+        for (i, line) in lines.enumerate() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() != 3 {
+                panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);
+            }
+            // read the values, and in case of error, print the line number
+            let x: usize = parts[0].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
+            let y: usize = parts[1].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
+            let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
+            grid.cells[x][y].q = q;
+            grid.stationary_charges.push(StationaryCharge { x: x, y: y, q });
+        }
+        if grid.stationary_charges.len() != linecount {
+            panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
+        }
+        grid
+    }
+    fn populate_field(&mut self) {
+        for (y, row) in self.cells.iter_mut().enumerate() {
+            for (x, cell) in row.iter_mut().enumerate() {
+                let cell_data = field_intensity_potential(x, y, &self.stationary_charges);
+                cell.ex = cell_data.intensity.x;
+                cell.ey = cell_data.intensity.y;
+                cell.e = (cell_data.intensity.x.powi(2) + cell_data.intensity.y.powi(2)).sqrt();
+                cell.v = cell_data.potential;
+            }
         }
     }
+}
+
+
+fn main() {
+    let mut cellgrid = CellGrid::new_from_file("ładunki.txt");
+    println!("Odczytane ładunki:");
+    for charge in &cellgrid.stationary_charges {
+        println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
+    }
+
+    let start = Instant::now();
+    cellgrid.populate_field();
     let duration = start.elapsed();
     println!("Czas obliczeń natężenia i potencjału: {}ms ({}µs)", duration.as_millis(), duration.as_micros());
 
     // print the field intensity for each cell
     // also save to file in format: x, y, charge, Ex, Ey, E, V
     let mut output_file = fs::File::create("output.txt").expect("Nie można utworzyć pliku");
-    for (y, row) in cells.iter().enumerate() {
+    for (y, row) in cellgrid.cells.iter().enumerate() {
         for (x, cell) in row.iter().enumerate() {
             print_color(cell.e);
 
