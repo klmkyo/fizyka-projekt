@@ -209,7 +209,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
-                draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: cell.e as f32, g: cell.e as f32, b: cell.e as f32, a: 255.0 });
+                let intensity = cell.e as f32;
+                draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: intensity, g: intensity, b: intensity, a: 255.0 });
             }
         }
         // display stationary charges
@@ -218,20 +219,22 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         }
         // display movable charges and draw force vectors as arrows
         for charge in &cellgrid.movable_charges {
-            draw_circle(charge.x as f32 * scale_x, charge.y as f32 * scale_y, 5.0, GREEN);
+            let charge_x_scaled = charge.x as f32 * scale_x + scale_x/2.0;
+            let charge_y_scaled = charge.y as f32 * scale_y + scale_y/2.0;
+            draw_circle(charge_x_scaled, charge_y_scaled, 5.0, GREEN);
 
             // draw force vector
             let fx = charge.m * charge.a.x * 100.0;
             let fy = charge.m * charge.a.y * 100.0;
-            draw_line(charge.x as f32 * scale_x, charge.y as f32 * scale_y, charge.x as f32 * scale_x + fx as f32 * scale_x, charge.y as f32 * scale_y + fy as f32 * scale_y, 1.0, YELLOW);
+            draw_line(charge_x_scaled, charge_y_scaled, charge_x_scaled + fx as f32 * scale_x, charge_y_scaled + fy as f32 * scale_y, 1.0, YELLOW);
 
             // draw velocity vector
             let vx = charge.v.x * 4.0;
             let vy = charge.v.y * 4.0;
-            draw_line(charge.x as f32 * scale_x, charge.y as f32 * scale_y, charge.x as f32 * scale_x + vx as f32 * scale_x, charge.y as f32 * scale_y + vy as f32 * scale_y, 1.0, BLUE);
+            draw_line(charge_x_scaled, charge_y_scaled, charge_x_scaled + vx as f32 * scale_x, charge_y_scaled + vy as f32 * scale_y, 1.0, BLUE);
 
             // show charge values above the charge (rounded to 2 decimal places)
-            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2}), a: ({:.2}, {:.2})", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.a.x, charge.a.y), charge.x as f32 * scale_x, charge.y as f32 * scale_y - 20.0, 10.0, WHITE);
+            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2}), a: ({:.2}, {:.2})", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.a.x, charge.a.y), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
         }
 
         // show fps
