@@ -1,6 +1,5 @@
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell};
-use futures::executor::block_on;
-use macroquad::prelude::*;
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell, ops::Range};
+use macroquad::{prelude::*, ui::{widgets::{self, Group}, root_ui, self}, hash};
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -119,7 +118,7 @@ impl CellGrid {
 
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
         let mut lines = contents.lines();
-        let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
+        // let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
         for (i, line) in lines.enumerate() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() != 3 {
@@ -132,9 +131,9 @@ impl CellGrid {
             grid.cells[x][y].q = q;
             grid.stationary_charges.push(StationaryCharge { x: x, y: y, q });
         }
-        if grid.stationary_charges.len() != linecount {
-            panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
-        }
+        // if grid.stationary_charges.len() != linecount {
+        //     panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
+        // }
         grid
     }
     fn populate_field(&mut self) {
@@ -198,8 +197,18 @@ impl CellGrid {
 }
 
 async fn macroquad_display(cellgrid: &mut CellGrid) {
+    let mut steps_by_frame = 1500;
+    let mut delta_t = 0.0001;
+    let mut paused = false;
+
     loop {
-        cellgrid.update_movable_charges(0.15);
+        let start = Instant::now();
+        if !paused {
+            for _ in 0..steps_by_frame {
+                cellgrid.update_movable_charges(delta_t);
+            }
+        }
+        let update_time = start.elapsed().as_micros();
 
         // fit the grid to the screen
         let scale_x = screen_width() / (cellgrid.cells.len() as f32);
@@ -213,6 +222,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: intensity, g: intensity, b: intensity, a: 255.0 });
             }
         }
+
         // display stationary charges
         for charge in &cellgrid.stationary_charges {
             draw_circle(charge.x as f32 * scale_x + scale_x/2.0, charge.y as f32 * scale_y + scale_y/2.0, 5.0, RED);
@@ -239,6 +249,13 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
         // show fps
         draw_text(&format!("FPS: {}", get_fps()), 10.0, 10.0, 20.0, WHITE);
+        draw_text(&format!("Obliczenia na klatke: {}ms | Render {}ms", update_time as f64 / 1000.0, get_frame_time()*1000.0), 10.0, 30.0, 20.0, WHITE);
+
+        // pause when ESC is pressed
+        if is_key_pressed(KeyCode::Escape) {
+            paused = !paused;
+        }
+
 
         next_frame().await
     }
@@ -259,7 +276,7 @@ async fn main() {
     // cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 1.0, y: 1.0 }, a: XY { x: 0.0, y: 0.0 } });
+    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
 
 
     macroquad_display(&mut cellgrid).await;
