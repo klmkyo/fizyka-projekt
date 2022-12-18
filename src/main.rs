@@ -200,7 +200,18 @@ fn main() {
     cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.0, y: 0.0 } });
+    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 1.0, y: 1.0 } });
+
+    let delta_t = 0.1;
+    // simulate charge movement for 10 seconds
+    for _ in 0..100 {
+        cellgrid.update_movable_charges(delta_t);
+        // print the charge position
+        for charge in &cellgrid.movable_charges {
+            println!("x: {}, y: {}", charge.x, charge.y);
+        }
+    }
+
 
 
     // let mut charge: Charge;
