@@ -1,5 +1,5 @@
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell, ops::Range};
-use macroquad::{prelude::*, ui::{widgets::{self, Group}, root_ui, self}, hash};
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant};
+use macroquad::prelude::*;
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -260,6 +260,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // - add a way to change the number of steps per frame
         // - add a way to change delta_t
         // - make a way to add charges in gui
+        // OPTIONAL:
+        // - rremove file operations and time for wasm build
 
 
         next_frame().await
