@@ -288,7 +288,7 @@ async fn main() {
     // cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
+    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 10.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
 
     macroquad_display(&mut cellgrid).await;
 }
