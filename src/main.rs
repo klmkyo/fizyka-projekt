@@ -251,10 +251,15 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         draw_text(&format!("FPS: {}", get_fps()), 10.0, 10.0, 20.0, WHITE);
         draw_text(&format!("Obliczenia na klatke: {}ms | Render {}ms", update_time as f64 / 1000.0, get_frame_time()*1000.0), 10.0, 30.0, 20.0, WHITE);
 
-        // pause when ESC is pressed
-        if is_key_pressed(KeyCode::Escape) {
+        // pause when Space is pressed
+        if is_key_pressed(KeyCode::Space) {
             paused = !paused;
         }
+
+        // TODO:
+        // - add a way to change the number of steps per frame
+        // - add a way to change delta_t
+        // - make a way to add charges in gui
 
 
         next_frame().await
@@ -278,34 +283,5 @@ async fn main() {
 
     cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 1.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
 
-
     macroquad_display(&mut cellgrid).await;
-
-
-    // let delta_t = 0.1;
-    // // simulate charge movement for 10 seconds
-    // for _ in 0..100 {
-    //     cellgrid.update_movable_charges(delta_t);
-    //     // print the charge position
-    //     for charge in &cellgrid.movable_charges {
-    //         println!("x: {}, y: {}", charge.x, charge.y);
-    //     }
-    // }
-
-
-
-    // let mut charge: Charge;
-    // println!("Podaj dane ładunku: ");
-    // charge.x = read_input(" - położenie początkowe X: ");
-    // charge.y = read_input(" - położenie początkowe Y: ");
-    // charge.q = read_input(" - ładunek [C]: ");
-    // charge.m = read_input(" - masa [kg]: ");
-    // charge.v.x = read_input(" - prędkość początkowa X: ");
-    // charge.v.y = read_input(" - prędkość początkowa Y: ");
-
-    // // E_x(x_0, y_0) = natężenie elektryczne w punkcie (x_0, y_0)
-    // // charge.a.x = (charge.q * ) / charge.m;
-
-    // println!();
-    // let delta_t = read_input::<f64>("Krok czasowy [s]: ");
 }
