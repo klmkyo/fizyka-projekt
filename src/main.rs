@@ -10,6 +10,7 @@ fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fm
     x
 }
 
+#[derive(Clone)]
 struct XY<T> {
     x: T,
     y: T,
@@ -22,6 +23,9 @@ impl XY<f64> {
     fn normalize(&self) -> Self {
         let length = self.length();
         XY { x: self.x / length, y: self.y / length }
+    }
+    fn angle(&self) -> f64 {
+        self.y.atan2(self.x)
     }
 }
 
@@ -182,16 +186,17 @@ impl CellGrid {
     }
     fn update_movable_charges(&mut self, delta_t: f64) {
         for movable_charge in &mut self.movable_charges {
+            // TODO popraw żeby raz używało prawidłowo wczesniejszych wartości raz aktualnych
             let intensity = field_intensity_movable(movable_charge.x, movable_charge.y, &self.stationary_charges);
-            
-            movable_charge.a.x = intensity.x * movable_charge.q / movable_charge.m;
-            movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
+
+            movable_charge.x += (movable_charge.v.x * delta_t) + (0.5 * movable_charge.a.x * delta_t.powi(2));
+            movable_charge.y += (movable_charge.v.y * delta_t) + (0.5 * movable_charge.a.y * delta_t.powi(2));
 
             movable_charge.v.x += movable_charge.a.x * delta_t;
             movable_charge.v.y += movable_charge.a.y * delta_t;
 
-            movable_charge.x += movable_charge.v.x * delta_t;
-            movable_charge.y += movable_charge.v.y * delta_t;
+            movable_charge.a.x = intensity.x * movable_charge.q / movable_charge.m;
+            movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
         }
     }
 }
@@ -243,8 +248,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             let vy = charge.v.y * 4.0;
             draw_line(charge_x_scaled, charge_y_scaled, charge_x_scaled + vx as f32 * scale_x, charge_y_scaled + vy as f32 * scale_y, 1.0, BLUE);
 
-            // show charge values above the charge (rounded to 2 decimal places)
-            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2}), a: ({:.2}, {:.2})", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.a.x, charge.a.y), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
+            // show charge values above the charge (rounded to 2 decimal places), angle in degrees
+            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
         }
 
         // show fps
