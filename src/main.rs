@@ -1,4 +1,4 @@
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant};
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell};
 use macroquad::prelude::*;
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
@@ -107,6 +107,8 @@ fn print_color(number: f64, max_g: f64, max_y: f64) {
 
 // create a struct called CellGrid, which is a 2d vector of Cells
 struct CellGrid {
+    w: usize,
+    h: usize,
     cells: Vec<Vec<Cell>>,
     stationary_charges: Vec<StationaryCharge>,
     movable_charges: Vec<MovableCharge>,
@@ -115,7 +117,7 @@ struct CellGrid {
 impl CellGrid {
     fn new(x: usize, y: usize) -> Self {
         let cells = vec![vec![Cell { q: 0.0, e: XY { x: 0.0, y: 0.0 }, v: 0.0 }; x]; y];
-        CellGrid { cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
+        CellGrid { w: x, h: y, cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
     }
     fn new_from_file(file: &str) -> Self {
         let mut grid = CellGrid::new(256, 256);
@@ -204,8 +206,16 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut steps_by_frame = 1500;
     let mut delta_t = 0.0001;
     let mut paused = false;
+    let mut screen_h = screen_height();
+    let mut screen_w = screen_width();
+
+    let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
+    let mut texture = Texture2D::from_image(&image);
 
     loop {
+        screen_h = screen_height();
+        screen_w = screen_width();
+
         let start = Instant::now();
         if !paused {
             for _ in 0..steps_by_frame {
@@ -215,17 +225,22 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         let update_time = start.elapsed().as_micros();
 
         // fit the grid to the screen
-        let scale_x = screen_width() / (cellgrid.cells.len() as f32);
-        let scale_y = screen_height() / (cellgrid.cells[0].len() as f32);
+        let scale_x = screen_w / (cellgrid.cells.len() as f32);
+        let scale_y = screen_h / (cellgrid.cells[0].len() as f32);
         
-        clear_background(BLACK);
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 let intensity = cell.e.length() as f32;
-                draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: intensity, g: intensity, b: intensity, a: 255.0 });
+                image.set_pixel(x as u32, y as u32, Color::new(intensity, intensity, intensity, 1.0));
             }
         }
+        texture.update(&image);
+        // draw stretched texture
+        draw_texture_ex(texture, 0.0, 0.0, BLACK, DrawTextureParams {
+            dest_size: Some(vec2(screen_w, screen_h)),
+            ..Default::default()
+        });
 
         // display stationary charges
         for charge in &cellgrid.stationary_charges {
@@ -283,7 +298,7 @@ async fn main() {
     let start = Instant::now();
     cellgrid.populate_field();
     let populate_time = start.elapsed().as_micros();
-    cellgrid.save_to_file("output.txt");
+    // cellgrid.save_to_file("output.txt");
     // cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
