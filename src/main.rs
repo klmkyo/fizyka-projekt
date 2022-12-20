@@ -41,9 +41,7 @@ struct MovableCharge {
 #[derive(Clone)]
 struct Cell {
     q: f64,
-    ex: f64,
-    ey: f64,
-    e: f64,
+    e: XY<f64>,
     // v = potencjał pola elektrycznego
     v: f64,
 }
@@ -75,6 +73,8 @@ fn field_intensity_potential(x: usize, y: usize, stationary_charges: &Vec<Statio
     }
     CellData { intensity, potential }
 }
+
+const k: f64 = 8.99e9;
 
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity = XY { x: 0.0, y: 0.0 };
@@ -114,7 +114,7 @@ struct CellGrid {
 
 impl CellGrid {
     fn new(x: usize, y: usize) -> Self {
-        let cells = vec![vec![Cell { q: 0.0, ex: 0.0, ey: 0.0, e: 0.0, v: 0.0 }; x]; y];
+        let cells = vec![vec![Cell { q: 0.0, e: XY { x: 0.0, y: 0.0 }, v: 0.0 }; x]; y];
         CellGrid { cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
     }
     fn new_from_file(file: &str) -> Self {
@@ -144,9 +144,8 @@ impl CellGrid {
         for (y, row) in self.cells.iter_mut().enumerate() {
             for (x, cell) in row.iter_mut().enumerate() {
                 let cell_data = field_intensity_potential(x, y, &self.stationary_charges);
-                cell.ex = cell_data.intensity.x;
-                cell.ey = cell_data.intensity.y;
-                cell.e = (cell_data.intensity.x.powi(2) + cell_data.intensity.y.powi(2)).sqrt();
+                cell.e.x = cell_data.intensity.x;
+                cell.e.y = cell_data.intensity.y;
                 cell.v = cell_data.potential;
             }
         }
@@ -156,7 +155,7 @@ impl CellGrid {
         for (y, row) in self.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 // format: x, y, charge, Ex, Ey, E, V
-                writeln!(output_file, "{}, {}, {}, {}, {}, {}, {}", x, y, cell.q, cell.ex, cell.ey, cell.e, cell.v).expect("Nie można zapisać do pliku");
+                writeln!(output_file, "{}, {}, {}, {}, {}, {}, {}", x, y, cell.q, cell.e.x, cell.e.y, cell.e.length(), cell.v).expect("Nie można zapisać do pliku");
             }
         }
         // remove the last newline
@@ -168,7 +167,7 @@ impl CellGrid {
     fn display_intensity_color(&self) {
         for row in &self.cells {
             for cell in row {
-                print_color(cell.e, 0.1, 0.5);
+                print_color(cell.e.length(), 0.1, 0.5);
             }
             println!();
         }
@@ -223,7 +222,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
-                let intensity = cell.e as f32;
+                let intensity = cell.e.length() as f32;
                 draw_rectangle(x as f32 * scale_x, y as f32 * scale_y, scale_x, scale_y, Color { r: intensity, g: intensity, b: intensity, a: 255.0 });
             }
         }
