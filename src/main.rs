@@ -10,6 +10,12 @@ fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fm
     x
 }
 
+// remove last character from a file, used to remove the newline character
+fn remove_last_char(file: &mut fs::File) {
+    file.seek(SeekFrom::End(-1)).expect("Wystąpił błąd podczas przesuwania się w pliku");
+    file.set_len(file.metadata().expect("Wystąpił błąd podczas pobierania metadanych pliku").len() - 1).expect("Wystąpił błąd podczas zmniejszania rozmiaru pliku");
+}
+
 #[derive(Clone)]
 struct XY<T> {
     x: T,
@@ -105,6 +111,13 @@ fn print_color(number: f64, max_g: f64, max_y: f64) {
     }
 }
 
+struct MovementStep {
+    x: f64,
+    y: f64,
+    v: XY<f64>,
+    a: XY<f64>,
+}
+
 // create a struct called CellGrid, which is a 2d vector of Cells
 struct CellGrid {
     w: usize,
@@ -112,15 +125,18 @@ struct CellGrid {
     cells: Vec<Vec<Cell>>,
     stationary_charges: Vec<StationaryCharge>,
     movable_charges: Vec<MovableCharge>,
+    // movement stuff
+    track_movement: bool,
+    movement_history: Vec<Vec<MovementStep>>,
 }
 
 impl CellGrid {
-    fn new(x: usize, y: usize) -> Self {
+    fn new(x: usize, y: usize, save_movement: bool) -> Self {
         let cells = vec![vec![Cell { q: 0.0, e: XY { x: 0.0, y: 0.0 }, v: 0.0 }; x]; y];
-        CellGrid { w: x, h: y, cells, stationary_charges: Vec::new(), movable_charges: Vec::new() }
+        CellGrid { w: x, h: y, cells, stationary_charges: Vec::new(), movable_charges: Vec::new(), track_movement: save_movement, movement_history: Vec::new() }
     }
-    fn new_from_file(file: &str) -> Self {
-        let mut grid = CellGrid::new(256, 256);
+    fn new_from_file(file: &str, save_movement: bool) -> Self {
+        let mut grid = CellGrid::new(256, 256, save_movement);
 
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
         let mut lines = contents.lines();
@@ -136,6 +152,9 @@ impl CellGrid {
             let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
             grid.cells[y][x].q = q;
             grid.stationary_charges.push(StationaryCharge { x: x, y: y, q });
+            if save_movement {
+                grid.movement_history.push(Vec::new());
+            }
         }
         // if grid.stationary_charges.len() != linecount {
         //     panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
@@ -152,7 +171,7 @@ impl CellGrid {
             }
         }
     }
-    fn save_to_file(&self, file: &str) {
+    fn save_grid_to_file(&self, file: &str) {
         let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
         for (y, row) in self.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
@@ -161,10 +180,7 @@ impl CellGrid {
             }
         }
         // remove the last newline
-        output_file.seek(SeekFrom::End(-1)).expect("Nie można przesunąć kursora");
-        output_file.set_len((&output_file).stream_position().expect("Nie można odczytać pozycji kursora")).expect("Nie można zmienić długości pliku");
-        // close the file
-        output_file.flush().expect("Nie można wyczyścić bufora");
+        remove_last_char(&mut output_file);
     }
     fn display_intensity_color(&self) {
         for row in &self.cells {
@@ -182,11 +198,22 @@ impl CellGrid {
             println!();
         }
     }
+    fn save_movement_history(&self, file: &str) {
+        // check if the movement history is enabled
+        if !self.track_movement {
+            panic!("Nie można zapisać historii ruchu, gdy opcja jest wyłączona!");
+        }
+        let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
+
+        // remove the last newline
+        remove_last_char(&mut output_file);
+        output_file.flush().expect("Nie można wyczyścić bufora");
+    }
     fn add_movable_charge(&mut self, charge: MovableCharge) {
         self.movable_charges.push(charge);
     }
     fn update_movable_charges(&mut self, delta_t: f64) {
-        for movable_charge in &mut self.movable_charges {
+        for (i, movable_charge) in &mut self.movable_charges.iter_mut().enumerate() {
             // TODO popraw żeby raz używało prawidłowo wczesniejszych wartości raz aktualnych
             let intensity = field_intensity_movable(movable_charge.x, movable_charge.y, &self.stationary_charges);
 
@@ -198,6 +225,10 @@ impl CellGrid {
 
             movable_charge.a.x = intensity.x * movable_charge.q / movable_charge.m;
             movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
+
+            if self.track_movement {
+                self.movement_history[i].push(MovementStep { x: movable_charge.x, y: movable_charge.y, a: movable_charge.a.clone(), v: movable_charge.v.clone() });
+            }
         }
     }
 }
@@ -206,11 +237,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut steps_by_frame = 1500;
     let mut delta_t = 0.0001;
     let mut paused = false;
-    let mut screen_h = screen_height();
-    let mut screen_w = screen_width();
+    let mut screen_h;
+    let mut screen_w;
 
     let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
-    let mut texture = Texture2D::from_image(&image);
+    let texture = Texture2D::from_image(&image);
 
     loop {
         screen_h = screen_height();
@@ -231,7 +262,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
-                let intensity = cell.e.length() as f32;
+                let intensity = cell.e.length() as f32 * 3.;
                 image.set_pixel(x as u32, y as u32, Color::new(intensity, intensity, intensity, 1.0));
             }
         }
@@ -289,7 +320,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
-    let mut cellgrid = CellGrid::new_from_file("ładunki.txt");
+    let mut cellgrid = CellGrid::new_from_file("ładunki.txt", false);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
@@ -298,7 +329,7 @@ async fn main() {
     let start = Instant::now();
     cellgrid.populate_field();
     let populate_time = start.elapsed().as_micros();
-    // cellgrid.save_to_file("output.txt");
+    cellgrid.save_grid_to_file("output_grid.txt");
     // cellgrid.display_potential_color();
     println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
