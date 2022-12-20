@@ -134,7 +134,7 @@ impl CellGrid {
             let x: usize = parts[0].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
             let y: usize = parts[1].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
             let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
-            grid.cells[x][y].q = q;
+            grid.cells[y][x].q = q;
             grid.stationary_charges.push(StationaryCharge { x: x, y: y, q });
         }
         // if grid.stationary_charges.len() != linecount {
@@ -225,8 +225,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         let update_time = start.elapsed().as_micros();
 
         // fit the grid to the screen
-        let scale_x = screen_w / (cellgrid.cells.len() as f32);
-        let scale_y = screen_h / (cellgrid.cells[0].len() as f32);
+        let scale_x = screen_w / (cellgrid.w as f32);
+        let scale_y = screen_h / (cellgrid.h as f32);
         
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
@@ -237,7 +237,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         }
         texture.update(&image);
         // draw stretched texture
-        draw_texture_ex(texture, 0.0, 0.0, BLACK, DrawTextureParams {
+        draw_texture_ex(texture, 0.0, 0.0, WHITE, DrawTextureParams {
             dest_size: Some(vec2(screen_w, screen_h)),
             ..Default::default()
         });
