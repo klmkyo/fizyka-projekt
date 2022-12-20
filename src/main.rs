@@ -199,11 +199,21 @@ impl CellGrid {
         }
     }
     fn save_movement_history(&self, file: &str) {
+        // TODO make this work better with multiple charges
+
         // check if the movement history is enabled
         if !self.track_movement {
             panic!("Nie można zapisać historii ruchu, gdy opcja jest wyłączona!");
         }
         let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
+
+        for (i, charge) in self.movable_charges.iter().enumerate() {
+            writeln!(output_file, "{}", charge.q).expect("Nie można zapisać do pliku");
+            for step in &self.movement_history[i] {
+                writeln!(output_file, "{}, {}, {}, {}, {}, {}", step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y).expect("Nie można zapisać do pliku");
+            }
+            writeln!(output_file).expect("Nie można zapisać do pliku");
+        }
 
         // remove the last newline
         remove_last_char(&mut output_file);
@@ -304,6 +314,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
             paused = !paused;
+        }
+
+        // save movement when S is pressed
+        if is_key_pressed(KeyCode::S) {
+            cellgrid.save_movement_history("output_movement.txt");
         }
 
         // TODO:
