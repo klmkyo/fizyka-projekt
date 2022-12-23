@@ -4,11 +4,13 @@ use std::{
     cell, env,
     f64::INFINITY,
     fs,
-    io::{Seek, SeekFrom, Write, BufWriter},
+    io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
     str::FromStr,
     time::Instant,
 };
+extern crate rand;
+use rand::{thread_rng, Rng};
 
 fn read_input<T: FromStr>(message: &str) -> T
 where
@@ -208,7 +210,7 @@ impl CellGrid {
         let mut grid = CellGrid::new(256, 256, save_movement);
 
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
-        let mut lines = contents.lines();
+        let lines = contents.lines();
         // let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
         for (i, line) in lines.enumerate() {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -227,9 +229,6 @@ impl CellGrid {
             });
             grid.cells[y][x].q = q;
             grid.stationary_charges.push(StationaryCharge { x, y, q });
-            if save_movement {
-                grid.movement_history.push(Vec::new());
-            }
         }
         // if grid.stationary_charges.len() != linecount {
         //     panic!("Liczba ładunków nie zgadza się z liczbą w pierwszej linii!");
@@ -316,11 +315,14 @@ impl CellGrid {
             remove_last_char(&mut output_file);
             output_file.flush().expect("Nie można wyczyścić bufora");
         }
-
     }
 
     fn add_movable_charge(&mut self, charge: MovableCharge) {
         self.movable_charges.push(charge);
+        // add a new vector to the movement history
+        if self.track_movement {
+            self.movement_history.push(Vec::new());
+        }
     }
 
     fn update_movable_charges(&mut self, delta_t: f64) {
@@ -464,17 +466,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             WHITE,
         );
 
-        
-
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
             paused = !paused;
         }
 
-
         // we save on the next frame so that the user can see the saving message
         if should_save {
-            cellgrid.save_movement_history(); 
+            cellgrid.save_movement_history();
             should_save = false;
         }
         // save movement when S is pressed
@@ -516,6 +515,10 @@ struct Args {
     /// Czy zapisać natężenie pola do pliku
     #[arg(long, default_value_t = false)]
     save_field: bool,
+
+    /// Czy zapisać ruch ładunków do pliku
+    #[arg(long, default_value_t = false)]
+    save_movement: bool,
 }
 
 #[macroquad::main("BasicShapes")]
@@ -527,7 +530,8 @@ async fn main() {
         fs::create_dir("output").unwrap();
     }
 
-    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", true);
+    
+    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", args.save_movement);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
@@ -546,20 +550,29 @@ async fn main() {
         }
     }
 
-    cellgrid.add_movable_charge(MovableCharge {
-        x: 0.0,
-        y: 0.0,
-        q: 10.0,
-        m: 1.0,
-        v: XY { x: 0.6, y: 3.0 },
-        a: XY { x: 0.0, y: 0.0 },
-    });
-
+    let mut rng = thread_rng();
+    // add multiple charges, coming from all directions, all places, at different speeds
+    for i in 0..100 {
+        let x = rng.gen_range(0.0..cellgrid.w as f64);
+        let y = rng.gen_range(0.0..cellgrid.h as f64);
+        let q = rng.gen_range(-30.0..30.0);
+        let m = rng.gen_range(0.0..20.0);
+        let v = XY {
+            x: rng.gen_range(-10.0..10.0),
+            y: rng.gen_range(-10.0..10.0),
+        };
+        let a = XY {
+            x: rng.gen_range(-10.0..10.0),
+            y: rng.gen_range(-10.0..10.0),
+        };
+        cellgrid.add_movable_charge(MovableCharge { x, y, q, m, v, a });
+    }
     println!();
 
     if args.no_gui {
         println!("Symulowanie przez max. {} kroków", args.max_steps);
 
+        // simulation
         let start = Instant::now();
         if args.stop_on_exit {
             'simulation: for _ in 0..args.max_steps {
@@ -583,6 +596,7 @@ async fn main() {
         let update_time = start.elapsed().as_micros();
         println!("Czas obliczeń: {}ms", update_time as f64 / 1000.0);
 
+        // saving movement history to file
         println!("Zapisywanie ruchu do pliku");
         let start = Instant::now();
         cellgrid.save_movement_history();
