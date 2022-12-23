@@ -1,21 +1,46 @@
 #![allow(unused)]
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell, env, path::Path};
-use macroquad::prelude::*;
 use clap::Parser;
+use macroquad::prelude::*;
+use std::{
+    cell, env,
+    f64::INFINITY,
+    fs,
+    io::{Seek, SeekFrom, Write},
+    path::Path,
+    str::FromStr,
+    time::Instant,
+};
 
-fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
+fn read_input<T: FromStr>(message: &str) -> T
+where
+    <T as FromStr>::Err: std::fmt::Debug,
+{
     print!("{}", message);
-    std::io::stdout().flush().expect("Wystąpił błąd podczas wypisywania");
+    std::io::stdout()
+        .flush()
+        .expect("Wystąpił błąd podczas wypisywania");
     let mut x = String::new();
-    std::io::stdin().read_line(&mut x).expect("Wystąpił błąd podczas odczytu");
-    let x: T = x.trim().parse().expect("Nie można przekonwertować do liczby");
+    std::io::stdin()
+        .read_line(&mut x)
+        .expect("Wystąpił błąd podczas odczytu");
+    let x: T = x
+        .trim()
+        .parse()
+        .expect("Nie można przekonwertować do liczby");
     x
 }
 
 // remove last character from a file, used to remove the newline character
 fn remove_last_char(file: &mut fs::File) {
-    file.seek(SeekFrom::End(-1)).expect("Wystąpił błąd podczas przesuwania się w pliku");
-    file.set_len(file.metadata().expect("Wystąpił błąd podczas pobierania metadanych pliku").len() - 1).expect("Wystąpił błąd podczas zmniejszania rozmiaru pliku");
+    file.seek(SeekFrom::End(-1))
+        .expect("Wystąpił błąd podczas przesuwania się w pliku");
+    file.set_len(
+        file.metadata()
+            .expect("Wystąpił błąd podczas pobierania metadanych pliku")
+            .len()
+            - 1,
+    )
+    .expect("Wystąpił błąd podczas zmniejszania rozmiaru pliku");
 }
 
 #[derive(Clone)]
@@ -30,7 +55,10 @@ impl XY<f64> {
     }
     fn normalize(&self) -> Self {
         let length = self.length();
-        XY { x: self.x / length, y: self.y / length }
+        XY {
+            x: self.x / length,
+            y: self.y / length,
+        }
     }
     fn angle(&self) -> f64 {
         self.y.atan2(self.x)
@@ -65,21 +93,38 @@ struct StationaryCharge {
     q: f64,
 }
 
-fn field_intensity_potential(x: usize, y: usize, stationary_charges: &Vec<StationaryCharge>) -> CellData {
+fn field_intensity_potential(
+    x: usize,
+    y: usize,
+    stationary_charges: &Vec<StationaryCharge>,
+) -> CellData {
     let mut intensity = XY { x: 0.0, y: 0.0 };
     let mut potential = 0.0;
     for stationary_charge in stationary_charges {
-        let r = (((x as i32 - stationary_charge.x as i32).pow(2) + (y as i32 - stationary_charge.y as i32).pow(2)) as f64).sqrt();
+        let r = (((x as i32 - stationary_charge.x as i32).pow(2)
+            + (y as i32 - stationary_charge.y as i32).pow(2)) as f64)
+            .sqrt();
 
         if r == 0.0 {
-            return CellData { intensity: XY { x: INFINITY, y: INFINITY }, potential: INFINITY };
+            return CellData {
+                intensity: XY {
+                    x: INFINITY,
+                    y: INFINITY,
+                },
+                potential: INFINITY,
+            };
         }
 
-        intensity.x += (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(3));
-        intensity.y += (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(3));
+        intensity.x +=
+            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(3));
+        intensity.y +=
+            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(3));
         potential += stationary_charge.q / r;
     }
-    CellData { intensity, potential }
+    CellData {
+        intensity,
+        potential,
+    }
 }
 
 const K: f64 = 8.99e9;
@@ -87,9 +132,14 @@ const K: f64 = 8.99e9;
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r = (((x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2)) as f64).sqrt();
+        let r = (((x - stationary_charge.x as f64).powi(2)
+            + (y - stationary_charge.y as f64).powi(2)) as f64)
+            .sqrt();
         if r == 0.0 {
-            return XY { x: INFINITY, y: INFINITY };
+            return XY {
+                x: INFINITY,
+                y: INFINITY,
+            };
         }
         intensity.x += (stationary_charge.q * (x - stationary_charge.x as f64)) / (r.powi(3));
         intensity.y += (stationary_charge.q * (y - stationary_charge.y as f64)) / (r.powi(3));
@@ -134,8 +184,26 @@ struct CellGrid {
 
 impl CellGrid {
     fn new(x: usize, y: usize, save_movement: bool) -> Self {
-        let cells = vec![vec![Cell { q: 0.0, e: XY { x: 0.0, y: 0.0 }, v: 0.0 }; x]; y];
-        CellGrid { w: x, h: y, cells, stationary_charges: Vec::new(), movable_charges: Vec::new(), track_movement: save_movement, movement_history: Vec::new() }
+        let cells = vec![
+            vec![
+                Cell {
+                    q: 0.0,
+                    e: XY { x: 0.0, y: 0.0 },
+                    v: 0.0
+                };
+                x
+            ];
+            y
+        ];
+        CellGrid {
+            w: x,
+            h: y,
+            cells,
+            stationary_charges: Vec::new(),
+            movable_charges: Vec::new(),
+            track_movement: save_movement,
+            movement_history: Vec::new(),
+        }
     }
     fn new_from_file(file: &str, save_movement: bool) -> Self {
         let mut grid = CellGrid::new(256, 256, save_movement);
@@ -149,11 +217,18 @@ impl CellGrid {
                 panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);
             }
             // read the values, and in case of error, print the line number
-            let x: usize = parts[0].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2));
-            let y: usize = parts[1].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2));
-            let q = parts[2].parse().unwrap_or_else(|_| panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2));
+            let x: usize = parts[0].parse().unwrap_or_else(|_| {
+                panic!("Wystąpił problem przy odczytywaniu X w linii {}", i + 2)
+            });
+            let y: usize = parts[1].parse().unwrap_or_else(|_| {
+                panic!("Wystąpił problem przy odczytywaniu Y w linii {}", i + 2)
+            });
+            let q = parts[2].parse().unwrap_or_else(|_| {
+                panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2)
+            });
             grid.cells[y][x].q = q;
-            grid.stationary_charges.push(StationaryCharge { x: x, y: y, q });
+            grid.stationary_charges
+                .push(StationaryCharge { x: x, y: y, q });
             if save_movement {
                 grid.movement_history.push(Vec::new());
             }
@@ -173,17 +248,30 @@ impl CellGrid {
             }
         }
     }
+
     fn save_grid_to_file(&self, file: &str) {
         let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
         for (y, row) in self.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 // format: x, y, charge, Ex, Ey, E, V
-                writeln!(output_file, "{}, {}, {}, {}, {}, {}, {}", x, y, cell.q, cell.e.x, cell.e.y, cell.e.length(), cell.v).expect("Nie można zapisać do pliku");
+                writeln!(
+                    output_file,
+                    "{}, {}, {}, {}, {}, {}, {}",
+                    x,
+                    y,
+                    cell.q,
+                    cell.e.x,
+                    cell.e.y,
+                    cell.e.length(),
+                    cell.v
+                )
+                .expect("Nie można zapisać do pliku");
             }
         }
         // remove the last newline
         remove_last_char(&mut output_file);
     }
+
     fn display_intensity_color(&self) {
         for row in &self.cells {
             for cell in row {
@@ -192,6 +280,7 @@ impl CellGrid {
             println!();
         }
     }
+
     fn display_potential_color(&self) {
         for row in &self.cells {
             for cell in row {
@@ -200,6 +289,7 @@ impl CellGrid {
             println!();
         }
     }
+
     fn save_movement_history(&self, file: &str) {
         // TODO make this work better with multiple charges
 
@@ -211,7 +301,12 @@ impl CellGrid {
 
         for (i, charge) in self.movable_charges.iter().enumerate() {
             for step in &self.movement_history[i] {
-                writeln!(output_file, "{}, {}, {}, {}, {}, {}", step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y).expect("Nie można zapisać do pliku");
+                writeln!(
+                    output_file,
+                    "{}, {}, {}, {}, {}, {}",
+                    step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
+                )
+                .expect("Nie można zapisać do pliku");
             }
             writeln!(output_file).expect("Nie można zapisać do pliku");
         }
@@ -220,16 +315,24 @@ impl CellGrid {
         remove_last_char(&mut output_file);
         output_file.flush().expect("Nie można wyczyścić bufora");
     }
+
     fn add_movable_charge(&mut self, charge: MovableCharge) {
         self.movable_charges.push(charge);
     }
+
     fn update_movable_charges(&mut self, delta_t: f64) {
         for (i, movable_charge) in &mut self.movable_charges.iter_mut().enumerate() {
             // TODO popraw żeby raz używało prawidłowo wczesniejszych wartości raz aktualnych
-            let intensity = field_intensity_movable(movable_charge.x, movable_charge.y, &self.stationary_charges);
+            let intensity = field_intensity_movable(
+                movable_charge.x,
+                movable_charge.y,
+                &self.stationary_charges,
+            );
 
-            movable_charge.x += (movable_charge.v.x * delta_t) + (0.5 * movable_charge.a.x * delta_t.powi(2));
-            movable_charge.y += (movable_charge.v.y * delta_t) + (0.5 * movable_charge.a.y * delta_t.powi(2));
+            movable_charge.x +=
+                (movable_charge.v.x * delta_t) + (0.5 * movable_charge.a.x * delta_t.powi(2));
+            movable_charge.y +=
+                (movable_charge.v.y * delta_t) + (0.5 * movable_charge.a.y * delta_t.powi(2));
 
             movable_charge.v.x += movable_charge.a.x * delta_t;
             movable_charge.v.y += movable_charge.a.y * delta_t;
@@ -238,7 +341,12 @@ impl CellGrid {
             movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
 
             if self.track_movement {
-                self.movement_history[i].push(MovementStep { x: movable_charge.x, y: movable_charge.y, a: movable_charge.a.clone(), v: movable_charge.v.clone() });
+                self.movement_history[i].push(MovementStep {
+                    x: movable_charge.x,
+                    y: movable_charge.y,
+                    a: movable_charge.a.clone(),
+                    v: movable_charge.v.clone(),
+                });
             }
         }
     }
@@ -269,40 +377,70 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // fit the grid to the screen
         let scale_x = screen_w / (cellgrid.w as f32);
         let scale_y = screen_h / (cellgrid.h as f32);
-        
+
         // display intensity
         for (y, row) in cellgrid.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 let intensity = cell.e.length() as f32 * 3.;
-                image.set_pixel(x as u32, y as u32, Color::new(intensity, intensity, intensity, 1.0));
+                image.set_pixel(
+                    x as u32,
+                    y as u32,
+                    Color::new(intensity, intensity, intensity, 1.0),
+                );
             }
         }
         texture.update(&image);
         // draw stretched texture
-        draw_texture_ex(texture, 0.0, 0.0, WHITE, DrawTextureParams {
-            dest_size: Some(vec2(screen_w, screen_h)),
-            ..Default::default()
-        });
+        draw_texture_ex(
+            texture,
+            0.0,
+            0.0,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(screen_w, screen_h)),
+                ..Default::default()
+            },
+        );
 
         // display stationary charges
         for charge in &cellgrid.stationary_charges {
-            draw_circle(charge.x as f32 * scale_x + scale_x/2.0, charge.y as f32 * scale_y + scale_y/2.0, 5.0, RED);
+            draw_circle(
+                charge.x as f32 * scale_x + scale_x / 2.0,
+                charge.y as f32 * scale_y + scale_y / 2.0,
+                5.0,
+                RED,
+            );
         }
+        
         // display movable charges and draw force vectors as arrows
         for charge in &cellgrid.movable_charges {
-            let charge_x_scaled = charge.x as f32 * scale_x + scale_x/2.0;
-            let charge_y_scaled = charge.y as f32 * scale_y + scale_y/2.0;
+            let charge_x_scaled = charge.x as f32 * scale_x + scale_x / 2.0;
+            let charge_y_scaled = charge.y as f32 * scale_y + scale_y / 2.0;
             draw_circle(charge_x_scaled, charge_y_scaled, 5.0, GREEN);
 
             // draw force vector
             let fx = charge.m * charge.a.x * 100.0;
             let fy = charge.m * charge.a.y * 100.0;
-            draw_line(charge_x_scaled, charge_y_scaled, charge_x_scaled + fx as f32 * scale_x, charge_y_scaled + fy as f32 * scale_y, 1.0, YELLOW);
+            draw_line(
+                charge_x_scaled,
+                charge_y_scaled,
+                charge_x_scaled + fx as f32 * scale_x,
+                charge_y_scaled + fy as f32 * scale_y,
+                1.0,
+                YELLOW,
+            );
 
             // draw velocity vector
             let vx = charge.v.x * 4.0;
             let vy = charge.v.y * 4.0;
-            draw_line(charge_x_scaled, charge_y_scaled, charge_x_scaled + vx as f32 * scale_x, charge_y_scaled + vy as f32 * scale_y, 1.0, BLUE);
+            draw_line(
+                charge_x_scaled,
+                charge_y_scaled,
+                charge_x_scaled + vx as f32 * scale_x,
+                charge_y_scaled + vy as f32 * scale_y,
+                1.0,
+                BLUE,
+            );
 
             // show charge values above the charge (rounded to 2 decimal places), angle in degrees
             draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
@@ -310,7 +448,17 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
         // show fps
         draw_text(&format!("FPS: {}", get_fps()), 10.0, 10.0, 20.0, WHITE);
-        draw_text(&format!("Obliczenia na klatke: {}ms | Render {}ms", update_time as f64 / 1000.0, get_frame_time()*1000.0), 10.0, 30.0, 20.0, WHITE);
+        draw_text(
+            &format!(
+                "Obliczenia na klatke: {}ms | Render {}ms",
+                update_time as f64 / 1000.0,
+                get_frame_time() * 1000.0
+            ),
+            10.0,
+            30.0,
+            20.0,
+            WHITE,
+        );
 
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
@@ -328,7 +476,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // - make a way to add charges in gui
         // OPTIONAL:
         // - rremove file operations and time for wasm build
-
 
         next_frame().await
     }
@@ -356,7 +503,7 @@ struct Args {
     /// Czy zapisać natężenie pola do pliku
     #[arg(long, default_value_t = false)]
     save_field: bool,
-}   
+}
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
@@ -365,14 +512,15 @@ async fn main() {
     println!("{:?}", args);
 
     // create output directory if it doesn't exist
-    if !Path::new("output").exists() { fs::create_dir("output").unwrap(); }
+    if !Path::new("output").exists() {
+        fs::create_dir("output").unwrap();
+    }
 
     let mut cellgrid = CellGrid::new_from_file("ładunki.txt", true);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
     }
-
 
     if args.save_field {
         let start = Instant::now();
@@ -383,7 +531,14 @@ async fn main() {
         println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
     }
 
-    cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 10.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
+    cellgrid.add_movable_charge(MovableCharge {
+        x: 0.0,
+        y: 0.0,
+        q: 10.0,
+        m: 1.0,
+        v: XY { x: 0.6, y: 3.0 },
+        a: XY { x: 0.0, y: 0.0 },
+    });
 
     println!();
 
@@ -392,12 +547,14 @@ async fn main() {
 
         let start = Instant::now();
         if args.stop_on_exit {
-            'simulation: for _ in 0..args.max_steps
-            {
+            'simulation: for _ in 0..args.max_steps {
                 cellgrid.update_movable_charges(args.delta_t);
-                for (i, charge) in cellgrid.movable_charges.iter().enumerate()
-                {
-                    if charge.x < 0.0 || charge.x > cellgrid.w as f64 || charge.y < 0.0 || charge.y > cellgrid.h as f64 {
+                for (i, charge) in cellgrid.movable_charges.iter().enumerate() {
+                    if charge.x < 0.0
+                        || charge.x > cellgrid.w as f64
+                        || charge.y < 0.0
+                        || charge.y > cellgrid.h as f64
+                    {
                         println!("Ładunek {} opuścił siatkę", i);
                         break 'simulation;
                     }
