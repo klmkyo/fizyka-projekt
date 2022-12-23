@@ -10,7 +10,8 @@ use std::{
     time::Instant,
 };
 extern crate rand;
-use rand::{thread_rng, Rng};
+use rand::{thread_rng, Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn read_input<T: FromStr>(message: &str) -> T
 where
@@ -67,6 +68,8 @@ impl XY<f64> {
 }
 
 struct MovableCharge {
+    should_move: bool,
+    collided: bool,
     x: f64,
     y: f64,
     q: f64,
@@ -94,6 +97,8 @@ struct StationaryCharge {
     q: f64,
 }
 
+// inline
+#[inline(always)]
 fn field_intensity_potential(
     x: usize,
     y: usize,
@@ -130,22 +135,29 @@ fn field_intensity_potential(
 
 const K: f64 = 8.99e9;
 
+// static mut lowest: f64 = INFINITY;
+
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
-    let mut intensity = XY { x: 0.0, y: 0.0 };
+    let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r = ((x - stationary_charge.x as f64).powi(2)
-            + (y - stationary_charge.y as f64).powi(2))
-        .sqrt();
-        if r == 0.0 {
+        let r = ((x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2)).sqrt();
+        if r < 2. {
             return XY {
                 x: INFINITY,
                 y: INFINITY,
             };
         }
-        intensity.x += (stationary_charge.q * (x - stationary_charge.x as f64)) / (r.powi(3));
-        intensity.y += (stationary_charge.q * (y - stationary_charge.y as f64)) / (r.powi(3));
+        // if r < unsafe { lowest } {
+        //     unsafe {
+        //         lowest = r;
+        //     }
+        //     println!("lowest: {}", unsafe { lowest });
+        // }
+        let intensity = stationary_charge.q / r.powi(2);
+        intensity_xy.x += intensity * (x - stationary_charge.x as f64) / r;
+        intensity_xy.y += intensity * (y - stationary_charge.y as f64) / r;
     }
-    intensity
+    intensity_xy
 }
 
 // print a number, colored based on its value (green, yellow, red), also handle NaN
@@ -326,13 +338,27 @@ impl CellGrid {
     }
 
     fn update_movable_charges(&mut self, delta_t: f64) {
-        for (i, movable_charge) in &mut self.movable_charges.iter_mut().enumerate() {
+        for (i, movable_charge) in &mut self
+            .movable_charges
+            .iter_mut()
+            .filter(|c| c.should_move)
+            .enumerate()
+        {
             // TODO popraw żeby raz używało prawidłowo wczesniejszych wartości raz aktualnych
             let intensity = field_intensity_movable(
                 movable_charge.x,
                 movable_charge.y,
                 &self.stationary_charges,
             );
+            // if the charge is too close to a stationary charge, field_intensity_movable returns Inf for all values
+            // thus why we check only one of them
+            // in that case, we don't want to update the charge's position
+            if intensity.x.is_infinite() {
+                println!("Kolizja");
+                movable_charge.collided = true;
+                movable_charge.should_move = false;
+                continue;
+            }
 
             movable_charge.x +=
                 (movable_charge.v.x * delta_t) + (0.5 * movable_charge.a.x * delta_t.powi(2));
@@ -358,8 +384,8 @@ impl CellGrid {
 }
 
 async fn macroquad_display(cellgrid: &mut CellGrid) {
-    let mut steps_by_frame = 1500;
-    let mut delta_t = 0.0001;
+    let mut steps_by_frame = 15000;
+    let mut delta_t = 0.00001;
     let mut paused = false;
     let mut screen_h;
     let mut screen_w;
@@ -419,14 +445,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         }
 
         // display movable charges and draw force vectors as arrows
-        for charge in &cellgrid.movable_charges {
+        for charge in cellgrid.movable_charges.iter().filter(|c| c.should_move) {
             let charge_x_scaled = charge.x as f32 * scale_x + scale_x / 2.0;
             let charge_y_scaled = charge.y as f32 * scale_y + scale_y / 2.0;
             draw_circle(charge_x_scaled, charge_y_scaled, 5.0, GREEN);
 
             // draw force vector
-            let fx = charge.m * charge.a.x * 100.0;
-            let fy = charge.m * charge.a.y * 100.0;
+            let fx = charge.m * charge.a.x * 40.0;
+            let fy = charge.m * charge.a.y * 40.0;
             draw_line(
                 charge_x_scaled,
                 charge_y_scaled,
@@ -530,7 +556,6 @@ async fn main() {
         fs::create_dir("output").unwrap();
     }
 
-    
     let mut cellgrid = CellGrid::new_from_file("ładunki.csv", args.save_movement);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
@@ -550,9 +575,9 @@ async fn main() {
         }
     }
 
-    let mut rng = thread_rng();
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
     // add multiple charges, coming from all directions, all places, at different speeds
-    for i in 0..100 {
+    for _ in 0..100 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
@@ -565,7 +590,16 @@ async fn main() {
             x: rng.gen_range(-10.0..10.0),
             y: rng.gen_range(-10.0..10.0),
         };
-        cellgrid.add_movable_charge(MovableCharge { x, y, q, m, v, a });
+        cellgrid.add_movable_charge(MovableCharge {
+            x,
+            y,
+            q,
+            m,
+            v,
+            a,
+            should_move: true,
+            collided: false,
+        });
     }
     println!();
 
