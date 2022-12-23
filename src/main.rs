@@ -1,11 +1,10 @@
-#![allow(unused)]
 use clap::Parser;
 use macroquad::prelude::*;
 use std::{
     cell, env,
     f64::INFINITY,
     fs,
-    io::{Seek, SeekFrom, Write},
+    io::{Seek, SeekFrom, Write, BufWriter},
     path::Path,
     str::FromStr,
     time::Instant,
@@ -289,30 +288,34 @@ impl CellGrid {
         }
     }
 
-    fn save_movement_history(&self, file: &str) {
+    fn save_movement_history(&self) {
         // TODO make this work better with multiple charges
 
         // check if the movement history is enabled
         if !self.track_movement {
             panic!("Nie można zapisać historii ruchu, gdy opcja jest wyłączona!");
         }
-        let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
 
-        for (i, charge) in self.movable_charges.iter().enumerate() {
-            for step in &self.movement_history[i] {
-                writeln!(
-                    output_file,
-                    "{}, {}, {}, {}, {}, {}",
-                    step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
-                )
-                .expect("Nie można zapisać do pliku");
+        for i in 0..self.movable_charges.len() {
+            // output/charge_[i].csv
+            let mut output_file = fs::File::create(format!("output/charge_{}.csv", i))
+                .expect("Nie można utworzyć pliku");
+            {
+                let mut output_file_buffer = BufWriter::new(&mut output_file);
+                for step in &self.movement_history[i] {
+                    writeln!(
+                        output_file_buffer,
+                        "{}, {}, {}, {}, {}, {}",
+                        step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
+                    )
+                    .expect("Nie można zapisać do pliku");
+                }
             }
-            writeln!(output_file).expect("Nie można zapisać do pliku");
+            // remove the last newline
+            remove_last_char(&mut output_file);
+            output_file.flush().expect("Nie można wyczyścić bufora");
         }
 
-        // remove the last newline
-        remove_last_char(&mut output_file);
-        output_file.flush().expect("Nie można wyczyścić bufora");
     }
 
     fn add_movable_charge(&mut self, charge: MovableCharge) {
@@ -466,7 +469,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
         // save movement when S is pressed
         if is_key_pressed(KeyCode::S) {
-            cellgrid.save_movement_history("output/output_movement.txt");
+            cellgrid.save_movement_history();
         }
 
         // TODO:
@@ -568,7 +571,10 @@ async fn main() {
         println!("Czas obliczeń: {}ms", update_time as f64 / 1000.0);
 
         println!("Zapisywanie ruchu do pliku");
-        cellgrid.save_movement_history("output/output_movement.txt");
+        let start = Instant::now();
+        cellgrid.save_movement_history();
+        let save_time = start.elapsed().as_micros();
+        println!("Czas zapisu: {}ms", save_time as f64 / 1000.0);
     } else {
         macroquad_display(&mut cellgrid).await;
     }
