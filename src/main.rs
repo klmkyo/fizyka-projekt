@@ -1,5 +1,7 @@
-use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell};
+#![allow(unused)]
+use std::{fs, str::FromStr, io::{Write, Seek, SeekFrom}, f64::INFINITY, time::Instant, cell, env, path::Path};
 use macroquad::prelude::*;
+use clap::Parser;
 
 fn read_input<T: FromStr>(message: &str) -> T where <T as FromStr>::Err: std::fmt::Debug {
     print!("{}", message);
@@ -80,7 +82,7 @@ fn field_intensity_potential(x: usize, y: usize, stationary_charges: &Vec<Statio
     CellData { intensity, potential }
 }
 
-const k: f64 = 8.99e9;
+const K: f64 = 8.99e9;
 
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity = XY { x: 0.0, y: 0.0 };
@@ -208,7 +210,6 @@ impl CellGrid {
         let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
 
         for (i, charge) in self.movable_charges.iter().enumerate() {
-            writeln!(output_file, "{}", charge.q).expect("Nie można zapisać do pliku");
             for step in &self.movement_history[i] {
                 writeln!(output_file, "{}, {}, {}, {}, {}, {}", step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y).expect("Nie można zapisać do pliku");
             }
@@ -318,7 +319,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
         // save movement when S is pressed
         if is_key_pressed(KeyCode::S) {
-            cellgrid.save_movement_history("output_movement.txt");
+            cellgrid.save_movement_history("output/output_movement.txt");
         }
 
         // TODO:
@@ -333,22 +334,86 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     }
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Nie pokazuj okna z symulacją
+    #[arg(long, default_value_t = false)]
+    no_gui: bool,
+
+    /// Maksymalna liczba kroków symulacji
+    #[arg(short, long, default_value_t = 10000)]
+    max_steps: u32,
+
+    /// Przyjęta delta dla symulacji
+    #[arg(short, long, default_value_t = 0.01)]
+    delta_t: f64,
+
+    /// Czy symulacja powinna być przerwana po opuszczeniu siatki przez ładunek
+    #[arg(long, default_value_t = false)]
+    stop_on_exit: bool,
+
+    /// Czy zapisać natężenie pola do pliku
+    #[arg(long, default_value_t = false)]
+    save_field: bool,
+}   
+
 #[macroquad::main("BasicShapes")]
 async fn main() {
-    let mut cellgrid = CellGrid::new_from_file("ładunki.txt", false);
+    let args = Args::parse();
+    // print all the arguments
+    println!("{:?}", args);
+
+    // create output directory if it doesn't exist
+    if !Path::new("output").exists() { fs::create_dir("output").unwrap(); }
+
+    let mut cellgrid = CellGrid::new_from_file("ładunki.txt", true);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
     }
 
-    let start = Instant::now();
-    cellgrid.populate_field();
-    let populate_time = start.elapsed().as_micros();
-    cellgrid.save_grid_to_file("output_grid.txt");
-    // cellgrid.display_potential_color();
-    println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
+
+    if args.save_field {
+        let start = Instant::now();
+        cellgrid.populate_field();
+        let populate_time = start.elapsed().as_micros();
+        cellgrid.save_grid_to_file("output/output_grid.txt");
+        // cellgrid.display_potential_color();
+        println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
+    }
 
     cellgrid.add_movable_charge(MovableCharge { x: 0.0, y: 0.0, q: 10.0, m: 1.0, v: XY { x: 0.6, y: 3.0 }, a: XY { x: 0.0, y: 0.0 } });
 
-    macroquad_display(&mut cellgrid).await;
+    println!();
+
+    if args.no_gui {
+        println!("Symulowanie przez max. {} kroków", args.max_steps);
+
+        let start = Instant::now();
+        if args.stop_on_exit {
+            'simulation: for _ in 0..args.max_steps
+            {
+                cellgrid.update_movable_charges(args.delta_t);
+                for (i, charge) in cellgrid.movable_charges.iter().enumerate()
+                {
+                    if charge.x < 0.0 || charge.x > cellgrid.w as f64 || charge.y < 0.0 || charge.y > cellgrid.h as f64 {
+                        println!("Ładunek {} opuścił siatkę", i);
+                        break 'simulation;
+                    }
+                }
+            }
+        } else {
+            for _ in 0..args.max_steps {
+                cellgrid.update_movable_charges(args.delta_t);
+            }
+        }
+        let update_time = start.elapsed().as_micros();
+        println!("Czas obliczeń: {}ms", update_time as f64 / 1000.0);
+
+        println!("Zapisywanie ruchu do pliku");
+        cellgrid.save_movement_history("output/output_movement.txt");
+    } else {
+        macroquad_display(&mut cellgrid).await;
+    }
 }
