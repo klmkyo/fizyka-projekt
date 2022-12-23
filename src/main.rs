@@ -254,7 +254,7 @@ impl CellGrid {
                 // format: x, y, charge, Ex, Ey, E, V
                 writeln!(
                     output_file,
-                    "{}, {}, {}, {}, {}, {}, {}",
+                    "{:.6} {:.6} {:.6} {:.6} {:.6} {:.6} {:.6}",
                     x,
                     y,
                     cell.q,
@@ -305,7 +305,8 @@ impl CellGrid {
                 for step in &self.movement_history[i] {
                     writeln!(
                         output_file_buffer,
-                        "{}, {}, {}, {}, {}, {}",
+                        // write with 6 decimal places
+                        "{:.6}, {:.6}, {:.6}, {:.6}, {:.6}, {:.6}",
                         step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
                     )
                     .expect("Nie można zapisać do pliku");
@@ -462,6 +463,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             WHITE,
         );
 
+        
+
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
             paused = !paused;
@@ -477,7 +480,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // - add a way to change delta_t
         // - make a way to add charges in gui
         // OPTIONAL:
-        // - rremove file operations and time for wasm build
+        // - remove file operations and time for wasm build
 
         next_frame().await
     }
@@ -510,8 +513,6 @@ struct Args {
 #[macroquad::main("BasicShapes")]
 async fn main() {
     let args = Args::parse();
-    // print all the arguments
-    println!("{:?}", args);
 
     // create output directory if it doesn't exist
     if !Path::new("output").exists() {
@@ -524,13 +525,17 @@ async fn main() {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
     }
 
-    if args.save_field {
+    // calculate the field only for saving or gui background
+    if args.save_field || !args.no_gui {
         let start = Instant::now();
         cellgrid.populate_field();
         let populate_time = start.elapsed().as_micros();
-        cellgrid.save_grid_to_file("output/output_grid.csv");
         // cellgrid.display_potential_color();
         println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
+
+        if args.save_field {
+            cellgrid.save_grid_to_file("output/output_grid.csv");
+        }
     }
 
     cellgrid.add_movable_charge(MovableCharge {
