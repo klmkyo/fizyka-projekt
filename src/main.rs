@@ -132,9 +132,9 @@ const K: f64 = 8.99e9;
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r = (((x - stationary_charge.x as f64).powi(2)
-            + (y - stationary_charge.y as f64).powi(2)) as f64)
-            .sqrt();
+        let r = ((x - stationary_charge.x as f64).powi(2)
+            + (y - stationary_charge.y as f64).powi(2))
+        .sqrt();
         if r == 0.0 {
             return XY {
                 x: INFINITY,
@@ -227,8 +227,7 @@ impl CellGrid {
                 panic!("Wystąpił problem przy odczytywaniu Q w linii {}", i + 2)
             });
             grid.cells[y][x].q = q;
-            grid.stationary_charges
-                .push(StationaryCharge { x: x, y: y, q });
+            grid.stationary_charges.push(StationaryCharge { x, y, q });
             if save_movement {
                 grid.movement_history.push(Vec::new());
             }
@@ -411,7 +410,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 RED,
             );
         }
-        
+
         // display movable charges and draw force vectors as arrows
         for charge in &cellgrid.movable_charges {
             let charge_x_scaled = charge.x as f32 * scale_x + scale_x / 2.0;
