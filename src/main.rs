@@ -364,6 +364,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
     let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
+    let mut should_save = false;
 
     loop {
         screen_h = screen_height();
@@ -470,9 +471,16 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             paused = !paused;
         }
 
+
+        // we save on the next frame so that the user can see the saving message
+        if should_save {
+            cellgrid.save_movement_history(); 
+            should_save = false;
+        }
         // save movement when S is pressed
         if is_key_pressed(KeyCode::S) {
-            cellgrid.save_movement_history();
+            draw_text("Zapisywanie ruchu...", 10.0, 50.0, 20.0, WHITE);
+            should_save = true;
         }
 
         // TODO:
