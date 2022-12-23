@@ -518,7 +518,7 @@ async fn main() {
         fs::create_dir("output").unwrap();
     }
 
-    let mut cellgrid = CellGrid::new_from_file("ładunki.txt", true);
+    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", true);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
@@ -528,7 +528,7 @@ async fn main() {
         let start = Instant::now();
         cellgrid.populate_field();
         let populate_time = start.elapsed().as_micros();
-        cellgrid.save_grid_to_file("output/output_grid.txt");
+        cellgrid.save_grid_to_file("output/output_grid.csv");
         // cellgrid.display_potential_color();
         println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
     }
