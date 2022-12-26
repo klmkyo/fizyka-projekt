@@ -403,6 +403,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
     let mut should_save = false;
+    let mut charge_details = true;
 
     loop {
         screen_h = screen_height();
@@ -485,7 +486,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             );
 
             // show charge values above the charge (rounded to 2 decimal places), angle in degrees
-            draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
+            if charge_details {
+                draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
+            }
         }
 
         // pause when Space is pressed
@@ -508,10 +511,12 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         egui_macroquad::ui(|egui_ctx| {
             egui::Window::new("Informacje")
                 .default_pos(Pos2::new(10.0, 40.0))
+                .resizable(false)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("grid")
                     .num_columns(2)
                     .spacing([40.0, 4.0])
+                    .min_col_width(100.0)
                     .striped(true)
                     .show(ui, |ui| {
                         // TODO divide into subcategories, include:
@@ -522,7 +527,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label("Kroki na klatke");
                         ui.label(&steps_by_frame.to_string());
                         ui.end_row();
-                        ui.label("Delta t");
+                        ui.label("Delta T");
                         ui.label(&delta_t.to_string());
                         ui.end_row();
                         ui.label("Liczba ładunków");
@@ -535,12 +540,13 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label(&format!("{}ms", update_time as f64 / 1000.0));
                         ui.end_row();
                         ui.label("Czas renderowania");
-                        ui.label(&format!("{}ms", get_frame_time() * 1000.0));
+                        ui.label(&format!("{:.2}ms", get_frame_time() * 1000.0));
                         ui.end_row();
                     });
                 });
             egui::Window::new("Ustawienia symulacji")
                 .default_pos(Pos2::new(10.0, 40.0))
+                .resizable(false)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("grid")
                     .num_columns(2)
@@ -551,10 +557,13 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.add(toggle::toggle(&mut running));
                         ui.end_row();
                         ui.label("Liczba kroków obliczeń na klatkę");
-                        ui.add(egui::Slider::new(&mut steps_by_frame, 1..=100_000));
+                        ui.add(egui::DragValue::new(&mut steps_by_frame).speed(1.0));
                         ui.end_row();
-                        ui.label("Delta t");
-                        ui.add(egui::Slider::new(&mut delta_t, 0.00001..=0.1));
+                        ui.label("Delta T");
+                        ui.add(egui::DragValue::new(&mut delta_t).speed(0.01));
+                        ui.end_row();
+                        ui.label("Informacje o ładunkach");
+                        ui.add(toggle::toggle(&mut charge_details));
                         ui.end_row();
                     })
                 });
@@ -570,7 +579,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // - add a way to change delta_t
         // - make a way to add charges in gui
         // - Replace XY with Vec2
-        // - use egui
+        // - maybe migrate everything to egui
         // OPTIONAL:
         // - remove file operations and time for wasm build
 
