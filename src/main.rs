@@ -1,4 +1,5 @@
 use clap::Parser;
+use egui::Pos2;
 use macroquad::{self, prelude::*};
 use std::{
     f64::INFINITY,
@@ -188,6 +189,7 @@ struct MovementStep {
 
 // create a struct called CellGrid, which is a 2d vector of Cells
 struct CellGrid {
+    // TODO make this private
     w: usize,
     h: usize,
     cells: Vec<Vec<Cell>>,
@@ -390,6 +392,8 @@ impl CellGrid {
 async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut steps_by_frame = 15000;
     let mut delta_t = 0.00001;
+    // TODO abstract the two above to speed and resolution
+
     let mut paused = false;
     let mut screen_h;
     let mut screen_w;
@@ -512,6 +516,49 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             should_save = true;
         }
 
+
+        egui_macroquad::ui(|egui_ctx| {
+            egui::Window::new("Informacje")
+                .default_pos(Pos2::new(10.0, 40.0))
+                .show(egui_ctx, |ui| {
+                    egui::Grid::new("grid")
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        // TODO divide into subcategories, include:
+                        // charges that collided, charges that left the screen, etc.
+                        ui.label("Kroki na klatke");
+                        ui.label(&steps_by_frame.to_string());
+                        ui.end_row();
+                        ui.label("Delta t");
+                        ui.label(&delta_t.to_string());
+                        ui.end_row();
+                        ui.label("Liczba ładunków");
+                        ui.label(&cellgrid.movable_charges.len().to_string());
+                        ui.end_row();
+                        ui.label("Liczba ładunków stacjonarnych");
+                        ui.label(&cellgrid.stationary_charges.len().to_string());
+                        ui.end_row();
+                        ui.label("Czas obliczeń na klatkę");
+                        ui.label(&format!("{}ms", update_time as f64 / 1000.0));
+                        ui.end_row();
+                        ui.label("Czas renderowania");
+                        ui.label(&format!("{}ms", get_frame_time() * 1000.0));
+                        ui.end_row();
+                    });
+                });
+            egui::Window::new("Ustawienia symulacji")
+                .default_pos(Pos2::new(10.0, 40.0))
+                .show(egui_ctx, |ui| {
+                    ui.add(egui::Slider::new(&mut steps_by_frame, 1..=100_000).text("Kroki na klatke"));
+                    ui.add(egui::Slider::new(&mut delta_t, 0.00001..=0.1).text("Delta t"));
+                });
+        });
+
+        egui_macroquad::draw();
+
+
         // sliders
 
         // TODO:
@@ -555,7 +602,7 @@ struct Args {
     save_movement: bool,
 }
 
-#[macroquad::main("BasicShapes")]
+#[macroquad::main("Symulacja")]
 async fn main() {
     let args = Args::parse();
 
