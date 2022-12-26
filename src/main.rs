@@ -13,6 +13,8 @@ extern crate rand;
 use rand::{thread_rng, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+mod toggle;
+
 fn read_input<T: FromStr>(message: &str) -> T
 where
     <T as FromStr>::Err: std::fmt::Debug,
@@ -394,7 +396,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut delta_t = 0.00001;
     // TODO abstract the two above to speed and resolution
 
-    let mut paused = false;
+    let mut running = false;
     let mut screen_h;
     let mut screen_w;
 
@@ -407,7 +409,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         screen_w = screen_width();
 
         let start = Instant::now();
-        if !paused {
+        if running {
             for _ in 0..steps_by_frame {
                 cellgrid.update_movable_charges(delta_t);
             }
@@ -486,23 +488,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
         }
 
-        // show fps
-        draw_text(&format!("FPS: {}", get_fps()), 10.0, 10.0, 20.0, WHITE);
-        draw_text(
-            &format!(
-                "Obliczenia na klatke: {}ms | Render {}ms",
-                update_time as f64 / 1000.0,
-                get_frame_time() * 1000.0
-            ),
-            10.0,
-            30.0,
-            20.0,
-            WHITE,
-        );
-
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
-            paused = !paused;
+            running = !running;
         }
 
         // we save on the next frame so that the user can see the saving message
@@ -528,6 +516,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                     .show(ui, |ui| {
                         // TODO divide into subcategories, include:
                         // charges that collided, charges that left the screen, etc.
+                        ui.label("FPS");
+                        ui.label(&get_fps().to_string());
+                        ui.end_row();
                         ui.label("Kroki na klatke");
                         ui.label(&steps_by_frame.to_string());
                         ui.end_row();
@@ -551,8 +542,21 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             egui::Window::new("Ustawienia symulacji")
                 .default_pos(Pos2::new(10.0, 40.0))
                 .show(egui_ctx, |ui| {
-                    ui.add(egui::Slider::new(&mut steps_by_frame, 1..=100_000).text("Kroki na klatke"));
-                    ui.add(egui::Slider::new(&mut delta_t, 0.00001..=0.1).text("Delta t"));
+                    egui::Grid::new("grid")
+                    .num_columns(2)
+                    .spacing([40.0, 4.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Symulacja");
+                        ui.add(toggle::toggle(&mut running));
+                        ui.end_row();
+                        ui.label("Liczba kroków obliczeń na klatkę");
+                        ui.add(egui::Slider::new(&mut steps_by_frame, 1..=100_000));
+                        ui.end_row();
+                        ui.label("Delta t");
+                        ui.add(egui::Slider::new(&mut delta_t, 0.00001..=0.1));
+                        ui.end_row();
+                    })
                 });
         });
 
