@@ -1,7 +1,6 @@
 use clap::Parser;
-use macroquad::prelude::*;
+use macroquad::{self, prelude::*};
 use std::{
-    cell, env,
     f64::INFINITY,
     fs,
     io::{BufWriter, Seek, SeekFrom, Write},
@@ -78,6 +77,8 @@ struct MovableCharge {
     a: XY<f64>,
 }
 
+
+
 #[derive(Clone)]
 struct Cell {
     q: f64,
@@ -140,7 +141,9 @@ const K: f64 = 8.99e9;
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r = ((x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2)).sqrt();
+        let r = ((x - stationary_charge.x as f64).powi(2)
+            + (y - stationary_charge.y as f64).powi(2))
+        .sqrt();
         if r < 2. {
             return XY {
                 x: INFINITY,
@@ -218,6 +221,7 @@ impl CellGrid {
             movement_history: Vec::new(),
         }
     }
+
     fn new_from_file(file: &str, save_movement: bool) -> Self {
         let mut grid = CellGrid::new(256, 256, save_movement);
 
@@ -508,10 +512,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             should_save = true;
         }
 
+        // sliders
+
         // TODO:
         // - add a way to change the number of steps per frame
         // - add a way to change delta_t
         // - make a way to add charges in gui
+        // - Replace XY with Vec2
+        // - use egui
         // OPTIONAL:
         // - remove file operations and time for wasm build
 
@@ -577,7 +585,7 @@ async fn main() {
 
     let mut rng = ChaCha8Rng::seed_from_u64(0);
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..100 {
+    for _ in 0..5 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
