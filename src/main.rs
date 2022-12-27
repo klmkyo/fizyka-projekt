@@ -7,7 +7,7 @@ use std::{
     io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
     str::FromStr,
-    time::Instant,
+    time::Instant, cell,
 };
 extern crate rand;
 use rand::{thread_rng, Rng, SeedableRng};
@@ -340,9 +340,7 @@ impl CellGrid {
     fn add_movable_charge(&mut self, charge: MovableCharge) {
         self.movable_charges.push(charge);
         // add a new vector to the movement history
-        if self.track_movement {
-            self.movement_history.push(Vec::new());
-        }
+        self.movement_history.push(Vec::new());
     }
 
     fn update_movable_charges(&mut self, delta_t: f64) {
@@ -402,7 +400,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
     let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
-    let mut should_save = false;
+    let mut save_movement_next_frame = false;
     let mut charge_details = true;
 
     loop {
@@ -497,19 +495,19 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         }
 
         // we save on the next frame so that the user can see the saving message
-        if should_save {
+        if save_movement_next_frame {
             cellgrid.save_movement_history();
-            should_save = false;
+            save_movement_next_frame = false;
         }
         // save movement when S is pressed
         if is_key_pressed(KeyCode::S) {
             draw_text("Zapisywanie ruchu...", 10.0, 50.0, 20.0, WHITE);
-            should_save = true;
+            save_movement_next_frame = true;
         }
 
 
         egui_macroquad::ui(|egui_ctx| {
-            egui::Window::new("Informacje")
+            let info_window = egui::Window::new("Informacje")
                 .default_pos(Pos2::new(10.0, 40.0))
                 .resizable(false)
                 .show(egui_ctx, |ui| {
@@ -530,8 +528,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label("Delta T");
                         ui.label(&delta_t.to_string());
                         ui.end_row();
-                        ui.label("Liczba ładunków");
+                        ui.label("Liczba ładunków ruchomych");
                         ui.label(&cellgrid.movable_charges.len().to_string());
+                        ui.end_row();
+                        ui.label("Liczba kolizji");
+                        ui.label(&cellgrid.movable_charges.iter().filter(|&x| (x).collided).count().to_string());
                         ui.end_row();
                         ui.label("Liczba ładunków stacjonarnych");
                         ui.label(&cellgrid.stationary_charges.len().to_string());
@@ -544,8 +545,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.end_row();
                     });
                 });
+            // place this window under the info window
+            let info_rect = info_window.unwrap().response.rect;
+            let info_window_pos = info_rect.min;
             egui::Window::new("Ustawienia symulacji")
-                .default_pos(Pos2::new(10.0, 40.0))
+                .default_pos(Pos2::new(info_window_pos.x, info_window_pos.y + info_rect.height() + 10.0))
                 .resizable(false)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("grid")
@@ -565,6 +569,20 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label("Informacje o ładunkach");
                         ui.add(toggle::toggle(&mut charge_details));
                         ui.end_row();
+
+                        // saving to a file
+                        ui.label("Zapisywanie ruchu");
+                        ui.add(toggle::toggle(&mut cellgrid.track_movement));
+                        ui.end_row();
+
+                        if cellgrid.track_movement {
+                            ui.label("Zapisz ruch");
+                            let button = egui::Button::new("Zapisz ruch");
+                            if ui.add_enabled(save_movement_next_frame, button).clicked() {
+                                save_movement_next_frame = true;
+                            };
+                            ui.end_row();
+                        }
                     })
                 });
         });
