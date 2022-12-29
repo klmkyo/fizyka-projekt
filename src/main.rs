@@ -403,6 +403,33 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut save_movement_next_frame = false;
     let mut charge_details = true;
 
+    // display intensity
+    for (y, row) in cellgrid.cells.iter().enumerate() {
+        for (x, cell) in row.iter().enumerate() {
+            let intensity = cell.e.length() as f32 * 3.;
+            image.set_pixel(
+                x as u32,
+                y as u32,
+                Color::new(intensity, intensity, intensity, 1.0),
+            );
+        }
+    }
+
+    // display stationary charges
+    for charge in &cellgrid.stationary_charges {
+        let x = charge.x as u32;
+        let y = charge.y as u32;
+        let color = if charge.q > 0. {
+            RED
+        } else {
+            BLUE
+        };
+        image.set_pixel(x, y, color);
+    }
+
+
+    texture.update(&image);
+
     loop {
         screen_h = screen_height();
         screen_w = screen_width();
@@ -419,18 +446,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         let scale_x = screen_w / (cellgrid.w as f32);
         let scale_y = screen_h / (cellgrid.h as f32);
 
-        // display intensity
-        for (y, row) in cellgrid.cells.iter().enumerate() {
-            for (x, cell) in row.iter().enumerate() {
-                let intensity = cell.e.length() as f32 * 3.;
-                image.set_pixel(
-                    x as u32,
-                    y as u32,
-                    Color::new(intensity, intensity, intensity, 1.0),
-                );
-            }
-        }
-        texture.update(&image);
         // draw stretched texture
         draw_texture_ex(
             texture,
@@ -444,14 +459,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         );
 
         // display stationary charges
-        for charge in &cellgrid.stationary_charges {
-            draw_circle(
-                charge.x as f32 * scale_x + scale_x / 2.0,
-                charge.y as f32 * scale_y + scale_y / 2.0,
-                5.0,
-                RED,
-            );
-        }
+        // for charge in &cellgrid.stationary_charges {
+        //     draw_circle(
+        //         charge.x as f32 * scale_x + scale_x / 2.0,
+        //         charge.y as f32 * scale_y + scale_y / 2.0,
+        //         5.0,
+        //         RED,
+        //     );
+        // }
 
         // display movable charges and draw force vectors as arrows
         for charge in cellgrid.movable_charges.iter().filter(|c| c.should_move) {
@@ -525,8 +540,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label("Kroki na klatke");
                         ui.label(&steps_by_frame.to_string());
                         ui.end_row();
-                        ui.label("Delta T");
+                        ui.label("Delta T na krok");
                         ui.label(&delta_t.to_string());
+                        ui.end_row();
+                        ui.label("Delta T na klatkę");
+                        let stringified_delta_t = format!("{:.16}", delta_t * steps_by_frame as f64);
+                        // strip trailing zeros
+                        let stringified_delta_t = stringified_delta_t.trim_end_matches('0').trim_end_matches('.');
+                        ui.label(&format!("{}", stringified_delta_t));
                         ui.end_row();
                         ui.label("Liczba ładunków ruchomych");
                         ui.label(&cellgrid.movable_charges.len().to_string());
@@ -563,7 +584,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         ui.label("Liczba kroków obliczeń na klatkę");
                         ui.add(egui::DragValue::new(&mut steps_by_frame).speed(1.0));
                         ui.end_row();
-                        ui.label("Delta T");
+                        ui.label("Delta T na krok");
                         ui.add(egui::DragValue::new(&mut delta_t).speed(0.01));
                         ui.end_row();
                         ui.label("Informacje o ładunkach");
@@ -661,9 +682,10 @@ async fn main() {
         }
     }
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    // let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..5 {
+    for _ in 0..50 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
