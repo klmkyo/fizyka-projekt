@@ -2,12 +2,13 @@ use clap::Parser;
 use egui::Pos2;
 use macroquad::{self, prelude::*};
 use std::{
+    cell,
     f64::INFINITY,
     fs,
     io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
     str::FromStr,
-    time::Instant, cell,
+    time::Instant,
 };
 extern crate rand;
 use rand::{thread_rng, Rng, SeedableRng};
@@ -80,8 +81,6 @@ struct MovableCharge {
     a: XY<f64>,
 }
 
-
-
 #[derive(Clone)]
 struct Cell {
     q: f64,
@@ -144,8 +143,8 @@ const K: f64 = 8.99e9;
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r_sq = (x - stationary_charge.x as f64).powi(2)
-            + (y - stationary_charge.y as f64).powi(2);
+        let r_sq =
+            (x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2);
         let r = r_sq.sqrt();
 
         if r < 2. {
@@ -160,10 +159,10 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         //     }
         //     println!("lowest: {}", unsafe { lowest });
         // }
-        let intensity = stationary_charge.q / r_sq;
+        let intensity_times_k = K * stationary_charge.q / r_sq;
 
-        intensity_xy.x += intensity * (x - stationary_charge.x as f64) / r;
-        intensity_xy.y += intensity * (y - stationary_charge.y as f64) / r;
+        intensity_xy.x += intensity_times_k * (x - stationary_charge.x as f64) / r;
+        intensity_xy.y += intensity_times_k * (y - stationary_charge.y as f64) / r;
 
         // get the angle of the intensity vector
         // let angle = (y - stationary_charge.y as f64).atan2(x - stationary_charge.x as f64);
@@ -400,8 +399,8 @@ impl CellGrid {
 }
 
 async fn macroquad_display(cellgrid: &mut CellGrid) {
-    let mut steps_by_frame = 15000;
-    let mut delta_t = 0.00001;
+    let mut steps_by_frame = 1000;
+    let mut delta_t = 0.00000001;
     // TODO abstract the two above to speed and resolution
 
     let mut running = false;
@@ -412,6 +411,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let texture = Texture2D::from_image(&image);
     let mut save_movement_next_frame = false;
     let mut charge_details = true;
+    let mut draw_vectors = true;
 
     // display intensity
     for (y, row) in cellgrid.cells.iter().enumerate() {
@@ -429,14 +429,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     for charge in &cellgrid.stationary_charges {
         let x = charge.x as u32;
         let y = charge.y as u32;
-        let color = if charge.q > 0. {
-            RED
-        } else {
-            BLUE
-        };
+        let color = if charge.q > 0. { RED } else { BLUE };
         image.set_pixel(x, y, color);
     }
-
 
     texture.update(&image);
 
@@ -482,31 +477,42 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         for charge in cellgrid.movable_charges.iter().filter(|c| c.should_move) {
             let charge_x_scaled = charge.x as f32 * scale_x + scale_x / 2.0;
             let charge_y_scaled = charge.y as f32 * scale_y + scale_y / 2.0;
-            draw_circle(charge_x_scaled, charge_y_scaled, 5.0, GREEN);
 
-            // draw force vector
-            let fx = charge.m * charge.a.x * 40.0;
-            let fy = charge.m * charge.a.y * 40.0;
-            draw_line(
+            // draw blue or red circle depending on charge
+            // radius depends on mass * charge, should range from 2 to 10
+            draw_circle(
                 charge_x_scaled,
                 charge_y_scaled,
-                charge_x_scaled + fx as f32 * scale_x,
-                charge_y_scaled + fy as f32 * scale_y,
-                1.0,
-                YELLOW,
+                3.5 + (charge.m * charge.q / 200.0) as f32,
+                if charge.q > 0. { RED } else { BLUE },
             );
 
-            // draw velocity vector
-            let vx = charge.v.x * 4.0;
-            let vy = charge.v.y * 4.0;
-            draw_line(
-                charge_x_scaled,
-                charge_y_scaled,
-                charge_x_scaled + vx as f32 * scale_x,
-                charge_y_scaled + vy as f32 * scale_y,
-                1.0,
-                BLUE,
-            );
+
+            if draw_vectors {
+                // draw acceleration vector
+                const ACCELERATION_VECTOR_SCALE: f32 = 5. * 10e5;
+                draw_line(
+                    charge_x_scaled,
+                    charge_y_scaled,
+                    charge_x_scaled + charge.a.x as f32 * scale_x / ACCELERATION_VECTOR_SCALE,
+                    charge_y_scaled + charge.a.y as f32 * scale_y / ACCELERATION_VECTOR_SCALE,
+                    1.0,
+                    YELLOW,
+                );
+
+                // draw velocity vector
+                let vx = charge.v.x;
+                let vy = charge.v.y;
+                const VELOCITY_VECTOR_SCALE: f32 = 1. * 10e3;
+                draw_line(
+                    charge_x_scaled,
+                    charge_y_scaled,
+                    charge_x_scaled + vx as f32 * scale_x / VELOCITY_VECTOR_SCALE,
+                    charge_y_scaled + vy as f32 * scale_y / VELOCITY_VECTOR_SCALE,
+                    1.0,
+                    BLUE,
+                );
+            }
 
             // show charge values above the charge (rounded to 2 decimal places), angle in degrees
             if charge_details {
@@ -530,96 +536,110 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             save_movement_next_frame = true;
         }
 
-
         egui_macroquad::ui(|egui_ctx| {
             let info_window = egui::Window::new("Informacje")
                 .default_pos(Pos2::new(10.0, 40.0))
                 .resizable(false)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("grid")
-                    .num_columns(2)
-                    .spacing([40.0, 4.0])
-                    .min_col_width(100.0)
-                    .striped(true)
-                    .show(ui, |ui| {
-                        // TODO divide into subcategories, include:
-                        // charges that collided, charges that left the screen, etc.
-                        ui.label("FPS");
-                        ui.label(&get_fps().to_string());
-                        ui.end_row();
-                        ui.label("Kroki na klatke");
-                        ui.label(&steps_by_frame.to_string());
-                        ui.end_row();
-                        ui.label("Delta T na krok");
-                        ui.label(&delta_t.to_string());
-                        ui.end_row();
-                        ui.label("Delta T na klatkę");
-                        let stringified_delta_t = format!("{:.16}", delta_t * steps_by_frame as f64);
-                        // strip trailing zeros
-                        let stringified_delta_t = stringified_delta_t.trim_end_matches('0').trim_end_matches('.');
-                        ui.label(&format!("{}", stringified_delta_t));
-                        ui.end_row();
-                        ui.label("Liczba ładunków ruchomych");
-                        ui.label(&cellgrid.movable_charges.len().to_string());
-                        ui.end_row();
-                        ui.label("Liczba kolizji");
-                        ui.label(&cellgrid.movable_charges.iter().filter(|&x| (x).collided).count().to_string());
-                        ui.end_row();
-                        ui.label("Liczba ładunków stacjonarnych");
-                        ui.label(&cellgrid.stationary_charges.len().to_string());
-                        ui.end_row();
-                        ui.label("Czas obliczeń na klatkę");
-                        ui.label(&format!("{}ms", update_time as f64 / 1000.0));
-                        ui.end_row();
-                        ui.label("Czas renderowania");
-                        ui.label(&format!("{:.2}ms", get_frame_time() * 1000.0));
-                        ui.end_row();
-                    });
+                        .num_columns(2)
+                        .spacing([40.0, 4.0])
+                        .min_col_width(100.0)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            // TODO divide into subcategories, include:
+                            // charges that collided, charges that left the screen, etc.
+                            ui.label("FPS");
+                            ui.label(&get_fps().to_string());
+                            ui.end_row();
+                            ui.label("Kroki na klatke");
+                            ui.label(&steps_by_frame.to_string());
+                            ui.end_row();
+                            ui.label("Delta T na krok");
+                            ui.label(&delta_t.to_string());
+                            ui.end_row();
+                            ui.label("Delta T na klatkę");
+                            let stringified_delta_t =
+                                format!("{:.16}", delta_t * steps_by_frame as f64);
+                            // strip trailing zeros
+                            let stringified_delta_t = stringified_delta_t
+                                .trim_end_matches('0')
+                                .trim_end_matches('.');
+                            ui.label(&format!("{}", stringified_delta_t));
+                            ui.end_row();
+                            ui.label("Liczba ładunków ruchomych");
+                            ui.label(&cellgrid.movable_charges.len().to_string());
+                            ui.end_row();
+                            ui.label("Liczba kolizji");
+                            ui.label(
+                                &cellgrid
+                                    .movable_charges
+                                    .iter()
+                                    .filter(|&x| (x).collided)
+                                    .count()
+                                    .to_string(),
+                            );
+                            ui.end_row();
+                            ui.label("Liczba ładunków stacjonarnych");
+                            ui.label(&cellgrid.stationary_charges.len().to_string());
+                            ui.end_row();
+                            ui.label("Czas obliczeń na klatkę");
+                            ui.label(&format!("{}ms", update_time as f64 / 1000.0));
+                            ui.end_row();
+                            ui.label("Czas renderowania");
+                            ui.label(&format!("{:.2}ms", get_frame_time() * 1000.0));
+                            ui.end_row();
+                        });
                 });
             // place this window under the info window
             let info_rect = info_window.unwrap().response.rect;
             let info_window_pos = info_rect.min;
             egui::Window::new("Ustawienia symulacji")
-                .default_pos(Pos2::new(info_window_pos.x, info_window_pos.y + info_rect.height() + 10.0))
+                .default_pos(Pos2::new(
+                    info_window_pos.x,
+                    info_window_pos.y + info_rect.height() + 10.0,
+                ))
                 .resizable(false)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("grid")
-                    .num_columns(2)
-                    .spacing([40.0, 4.0])
-                    .striped(true)
-                    .show(ui, |ui| {
-                        ui.label("Symulacja");
-                        ui.add(toggle::toggle(&mut running));
-                        ui.end_row();
-                        ui.label("Liczba kroków obliczeń na klatkę");
-                        ui.add(egui::DragValue::new(&mut steps_by_frame).speed(1.0));
-                        ui.end_row();
-                        ui.label("Delta T na krok");
-                        ui.add(egui::DragValue::new(&mut delta_t).speed(0.01));
-                        ui.end_row();
-                        ui.label("Informacje o ładunkach");
-                        ui.add(toggle::toggle(&mut charge_details));
-                        ui.end_row();
-
-                        // saving to a file
-                        ui.label("Zapisywanie ruchu");
-                        ui.add(toggle::toggle(&mut cellgrid.track_movement));
-                        ui.end_row();
-
-                        if cellgrid.track_movement {
-                            ui.label("Zapisz ruch");
-                            let button = egui::Button::new("Zapisz ruch");
-                            if ui.add_enabled(save_movement_next_frame, button).clicked() {
-                                save_movement_next_frame = true;
-                            };
+                        .num_columns(2)
+                        .spacing([40.0, 4.0])
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("Symulacja");
+                            ui.add(toggle::toggle(&mut running));
                             ui.end_row();
-                        }
-                    })
+                            ui.label("Liczba kroków obliczeń na klatkę");
+                            ui.add(egui::DragValue::new(&mut steps_by_frame).speed(1.0));
+                            ui.end_row();
+                            ui.label("Delta T na krok");
+                            ui.add(egui::DragValue::new(&mut delta_t).speed(0.01));
+                            ui.end_row();
+                            ui.label("Informacje o ładunkach");
+                            ui.add(toggle::toggle(&mut charge_details));
+                            ui.end_row();
+                            ui.label("Pokaż wektory");
+                            ui.add(toggle::toggle(&mut draw_vectors));
+                            ui.end_row();
+
+                            // saving to a file
+                            ui.label("Zapisywanie ruchu");
+                            ui.add(toggle::toggle(&mut cellgrid.track_movement));
+                            ui.end_row();
+
+                            if cellgrid.track_movement {
+                                ui.label("Zapisz ruch");
+                                let button = egui::Button::new("Zapisz ruch");
+                                if ui.add_enabled(save_movement_next_frame, button).clicked() {
+                                    save_movement_next_frame = true;
+                                };
+                                ui.end_row();
+                            }
+                        })
                 });
         });
 
         egui_macroquad::draw();
-
 
         // sliders
 
