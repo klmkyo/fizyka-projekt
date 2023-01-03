@@ -399,6 +399,8 @@ impl CellGrid {
 }
 
 async fn macroquad_display(cellgrid: &mut CellGrid) {
+    let mut time_elapsed: f64 = 0.;
+            
     let mut steps_by_frame = 1000;
     let mut delta_t = 0.00000001;
     // TODO abstract the two above to speed and resolution
@@ -444,6 +446,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             for _ in 0..steps_by_frame {
                 cellgrid.update_movable_charges(delta_t);
             }
+            time_elapsed += delta_t * steps_by_frame as f64;
         }
         let update_time = start.elapsed().as_micros();
 
@@ -549,6 +552,15 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                         .show(ui, |ui| {
                             // TODO divide into subcategories, include:
                             // charges that collided, charges that left the screen, etc.
+                            ui.label("Upłynięty czas symulacji");
+                            // print only the necessary zeros
+                            let stringified_time = format!("{:.16}", time_elapsed);
+                            let stringified_time = stringified_time
+                                .trim_end_matches('0')
+                                .trim_end_matches('.')
+                                .to_owned() + "s";
+                            ui.label(stringified_time);
+                            ui.end_row();
                             ui.label("FPS");
                             ui.label(&get_fps().to_string());
                             ui.end_row();
