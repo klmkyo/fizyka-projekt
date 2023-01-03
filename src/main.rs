@@ -144,9 +144,10 @@ const K: f64 = 8.99e9;
 fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
     let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
-        let r = ((x - stationary_charge.x as f64).powi(2)
-            + (y - stationary_charge.y as f64).powi(2))
-        .sqrt();
+        let r_sq = (x - stationary_charge.x as f64).powi(2)
+            + (y - stationary_charge.y as f64).powi(2);
+        let r = r_sq.sqrt();
+
         if r < 2. {
             return XY {
                 x: INFINITY,
@@ -159,9 +160,18 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         //     }
         //     println!("lowest: {}", unsafe { lowest });
         // }
-        let intensity = stationary_charge.q / r.powi(2);
+        let intensity = stationary_charge.q / r_sq;
+
         intensity_xy.x += intensity * (x - stationary_charge.x as f64) / r;
         intensity_xy.y += intensity * (y - stationary_charge.y as f64) / r;
+
+        // get the angle of the intensity vector
+        // let angle = (y - stationary_charge.y as f64).atan2(x - stationary_charge.x as f64);
+        // calculate the intensity vector using trigonometry
+        // let result2 = XY {
+        //     x: intensity * angle.cos(),
+        //     y: intensity * angle.sin(),
+        // };
     }
     intensity_xy
 }
