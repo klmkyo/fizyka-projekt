@@ -398,22 +398,23 @@ impl CellGrid {
     }
 }
 
-async fn macroquad_display(cellgrid: &mut CellGrid) {
-    let mut time_elapsed: f64 = 0.;
-            
+async fn macroquad_display(cellgrid: &mut CellGrid) {            
     let mut steps_by_frame = 1000;
     let mut delta_t = 0.00000001;
     // TODO abstract the two above to speed and resolution
 
     let mut running = false;
-    let mut screen_h;
-    let mut screen_w;
 
-    let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
-    let texture = Texture2D::from_image(&image);
     let mut save_movement_next_frame = false;
     let mut charge_details = true;
     let mut draw_vectors = true;
+
+    let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
+    let texture = Texture2D::from_image(&image);
+    let mut screen_h;
+    let mut screen_w;
+
+    let mut time_elapsed: f64 = 0.;
 
     // display intensity
     for (y, row) in cellgrid.cells.iter().enumerate() {
