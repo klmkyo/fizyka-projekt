@@ -2,7 +2,6 @@ use clap::Parser;
 use egui::Pos2;
 use macroquad::{self, prelude::*};
 use std::{
-    cell,
     f64::INFINITY,
     fs,
     io::{BufWriter, Seek, SeekFrom, Write},
@@ -11,8 +10,7 @@ use std::{
     time::Instant,
 };
 extern crate rand;
-use rand::{thread_rng, Rng, SeedableRng};
-use rand_chacha::ChaCha8Rng;
+use rand::{Rng};
 
 mod toggle;
 
