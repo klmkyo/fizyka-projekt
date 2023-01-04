@@ -670,7 +670,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author = "Marcin Klimek", version = "1.0", about = "Program symulujący ruch naładowanej cząsteczki w polu elektrycznym", long_about = None)]
 struct Args {
     /// Nie pokazuj okna z symulacją
     #[arg(long, default_value_t = false)]
