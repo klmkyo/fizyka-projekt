@@ -126,9 +126,9 @@ fn field_intensity_potential(
         }
 
         intensity.x +=
-            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(3));
+            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(2));
         intensity.y +=
-            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(3));
+            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(2));
         potential += stationary_charge.q / r;
     }
     CellData {
@@ -784,15 +784,23 @@ async fn main() {
         if args.stop_on_exit {
             'simulation: for _ in 0..args.max_steps {
                 cellgrid.update_movable_charges(args.delta_t);
-                for (i, charge) in cellgrid.movable_charges.iter().enumerate() {
-                    if charge.x < 0.0
-                        || charge.x > cellgrid.w as f64
-                        || charge.y < 0.0
-                        || charge.y > cellgrid.h as f64
+               
+                let mut all_out = true;
+                'out_of_bounds: for charge in cellgrid.movable_charges.iter() {
+                    if charge.x > 0.0
+                        || charge.x < cellgrid.w as f64
+                        || charge.y > 0.0
+                        || charge.y < cellgrid.h as f64
                     {
-                        println!("Ładunek {} opuścił siatkę", i);
-                        break 'simulation;
+                        // if there is at least one charge inside
+                        all_out = false;
+                        break 'out_of_bounds;
                     }
+                }
+
+                if all_out {
+                    println!("Wszystkie ładunki opuściły siatkę");
+                    break 'simulation;
                 }
             }
         } else {
