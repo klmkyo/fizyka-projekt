@@ -7,7 +7,7 @@ use std::{
     io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
     str::FromStr,
-    time::Instant,
+    time::Instant, cell,
 };
 extern crate rand;
 use rand::{Rng};
@@ -191,6 +191,11 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         // };
     }
     intensity_xy
+}
+
+#[inline(always)]
+fn in_bounds<T: PartialOrd>(x: T, y: T, min_x: T, max_x: T, min_y: T, max_y: T) -> bool {
+    x > min_x && x < max_x && y > min_y && y < max_y
 }
 
 // print a number, colored based on its value (green, yellow, red), also handle NaN
@@ -544,6 +549,25 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             }
         }
 
+        // draw intensity vector at user's mouse position
+        if draw_vectors {
+            let mouse_x = mouse_position().0;
+            let mouse_y = mouse_position().1;
+            let mouse_x_scaled: f64 = (mouse_x / scale_x).into();
+            let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
+
+            let force = field_intensity_movable(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges);
+            const FORCE_VECTOR_SCALE: f32 = 1. * 10e5;
+            draw_line(
+                mouse_x,
+                mouse_y,
+                mouse_x + force.x as f32 / FORCE_VECTOR_SCALE,
+                mouse_y + force.y as f32 / FORCE_VECTOR_SCALE,
+                1.0,
+                GREEN,
+            );
+        }
+
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
             running = !running;
@@ -750,7 +774,7 @@ async fn main() {
     // let mut rng = ChaCha8Rng::seed_from_u64(0);
     let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..50 {
+    for _ in 0..read_input("Ile ładunków dodac?") {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
@@ -782,26 +806,22 @@ async fn main() {
         // simulation
         let start = Instant::now();
         if args.stop_on_exit {
+            let cellgrid_w_f64 = cellgrid.w as f64;
+            let cellgrid_h_f64 = cellgrid.h as f64;
+
             'simulation: for _ in 0..args.max_steps {
                 cellgrid.update_movable_charges(args.delta_t);
                
-                let mut all_out = true;
-                'out_of_bounds: for charge in cellgrid.movable_charges.iter() {
-                    if charge.x > 0.0
-                        || charge.x < cellgrid.w as f64
-                        || charge.y > 0.0
-                        || charge.y < cellgrid.h as f64
+                for charge in cellgrid.movable_charges.iter() {
+                    if in_bounds(charge.x, charge.y, 0., cellgrid_w_f64, 0., cellgrid_h_f64)
                     {
                         // if there is at least one charge inside
-                        all_out = false;
-                        break 'out_of_bounds;
+                        continue 'simulation;
                     }
                 }
-
-                if all_out {
-                    println!("Wszystkie ładunki opuściły siatkę");
-                    break 'simulation;
-                }
+                // code reachable only if all charges are out of bounds
+                println!("Wszystkie ładunki opuściły siatkę");
+                break 'simulation;
             }
         } else {
             for _ in 0..args.max_steps {
