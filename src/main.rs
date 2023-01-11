@@ -7,7 +7,7 @@ use std::{
     io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
     str::FromStr,
-    time::Instant, cell,
+    time::Instant,
 };
 extern crate rand;
 use rand::{Rng};
@@ -111,9 +111,9 @@ fn field_intensity_potential(
     let mut intensity = XY { x: 0.0, y: 0.0 };
     let mut potential = 0.0;
     for stationary_charge in stationary_charges {
-        let r = (((x as i32 - stationary_charge.x as i32).pow(2)
-            + (y as i32 - stationary_charge.y as i32).pow(2)) as f64)
-            .sqrt();
+        let r_sq = (((x as i32 - stationary_charge.x as i32).pow(2)
+            + (y as i32 - stationary_charge.y as i32).pow(2)) as f64);
+        let r = r_sq.sqrt();
 
         if r == 0.0 {
             return CellData {
@@ -126,9 +126,9 @@ fn field_intensity_potential(
         }
 
         intensity.x +=
-            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / (r.powi(2));
+            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / r_sq;
         intensity.y +=
-            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / (r.powi(2));
+            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / r_sq;
         potential += stationary_charge.q / r;
     }
     CellData {
@@ -287,6 +287,7 @@ impl CellGrid {
         // }
         grid
     }
+    
     fn populate_field(&mut self) {
         for (y, row) in self.cells.iter_mut().enumerate() {
             for (x, cell) in row.iter_mut().enumerate() {
