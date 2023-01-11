@@ -775,7 +775,7 @@ async fn main() {
     // let mut rng = ChaCha8Rng::seed_from_u64(0);
     let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..read_input("Ile ładunków dodac?") {
+    for _ in 0..50 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
