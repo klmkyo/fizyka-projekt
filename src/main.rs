@@ -171,15 +171,14 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         // }
 
         // The electric field intensity (E) at a point caused by a stationary
-        // charge is given by the formula E = k * q / r^2, where k is a constant,
+        // charge is given by the formula E = k * q / r^3, where k is a constant,
         // q is the charge of the stationary charge, and r is the distance to the
         // point. We calculate the intensity of the field at the given point
         // caused by the given stationary charge and add it to the total intensity
         // vector.
-        let intensity_times_k = K * stationary_charge.q / r_sq;
-
-        intensity_xy.x += intensity_times_k * (x - stationary_charge.x as f64) / r;
-        intensity_xy.y += intensity_times_k * (y - stationary_charge.y as f64) / r;
+        let factor = K * stationary_charge.q / (r_sq * r);
+        intensity_xy.x += factor * (x - stationary_charge.x as f64);
+        intensity_xy.y += factor * (y - stationary_charge.y as f64);
 
         // another way to calculate the intensity vector
         // get the angle of the intensity vector
