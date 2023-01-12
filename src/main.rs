@@ -1,6 +1,6 @@
 use clap::Parser;
 use egui::Pos2;
-use macroquad::{self, prelude::*};
+use macroquad::{self, prelude::{*, camera::mouse}};
 use std::{
     f64::INFINITY,
     fs,
@@ -422,18 +422,33 @@ impl CellGrid {
     }
 }
 
+enum MouseCharge {
+    Positive,
+    Negative,
+}
+
+struct Preferences {
+    steps_by_frame: u32,
+    delta_t: f64,
+    running: bool,
+    charge_details: bool,
+    draw_vectors: bool,
+    mouse_charge: MouseCharge,
+}
 
 // UI main loop
 async fn macroquad_display(cellgrid: &mut CellGrid) {            
     let mut steps_by_frame = 1000;
     let mut delta_t = 0.00000001;
     // TODO abstract the two above to speed and resolution
-
     let mut running = false;
 
-    let mut save_movement_next_frame = false;
     let mut charge_details = true;
     let mut draw_vectors = true;
+    let mut mouse_charge = MouseCharge::Positive;
+
+
+    let mut save_movement_next_frame = false;
 
     let mut image = Image::gen_image_color(cellgrid.w as u16, cellgrid.h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
@@ -557,15 +572,32 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             let mouse_x_scaled: f64 = (mouse_x / scale_x).into();
             let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
 
-            let force = field_intensity_movable(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges);
-            const FORCE_VECTOR_SCALE: f32 = 1. * 10e5;
+            let intensity = field_intensity_movable(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges);
+
+            const INTENSITY_VECTOR_SCALE: f32 = 1. * 10e5;
+
+            let mut end_mouse = XY { x: mouse_x, y: mouse_y};
+            match mouse_charge {
+                MouseCharge::Positive => {
+                    end_mouse.x += intensity.x as f32 / INTENSITY_VECTOR_SCALE;
+                    end_mouse.y += intensity.y as f32 / INTENSITY_VECTOR_SCALE;
+                }
+                MouseCharge::Negative => {
+                    end_mouse.x -= intensity.x as f32 / INTENSITY_VECTOR_SCALE;
+                    end_mouse.y -= intensity.y as f32 / INTENSITY_VECTOR_SCALE;
+                }
+            }
+
             draw_line(
                 mouse_x,
                 mouse_y,
-                mouse_x + force.x as f32 / FORCE_VECTOR_SCALE,
-                mouse_y + force.y as f32 / FORCE_VECTOR_SCALE,
+                end_mouse.x,
+                end_mouse.y,
                 1.0,
-                GREEN,
+                match mouse_charge {
+                    MouseCharge::Positive => RED,
+                    MouseCharge::Negative => BLUE,
+                },
             );
         }
 
@@ -697,6 +729,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 });
         });
 
+        // on click invert the charge
+        if is_mouse_button_pressed(MouseButton::Left) {
+            mouse_charge = match mouse_charge {
+                MouseCharge::Positive => MouseCharge::Negative,
+                MouseCharge::Negative => MouseCharge::Positive,
+            };
+        }
+
         egui_macroquad::draw();
 
         // sliders
@@ -707,6 +747,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // - make a way to add charges in gui
         // - Replace XY with Vec2
         // - maybe migrate everything to egui
+        // - save preferences to a file
         // OPTIONAL:
         // - remove file operations and time for wasm build
 
