@@ -1,6 +1,9 @@
 use clap::Parser;
 use egui::Pos2;
-use macroquad::{self, prelude::{*, camera::mouse}};
+use macroquad::{
+    self,
+    prelude::{camera::mouse, *},
+};
 use rand_chacha::ChaCha8Rng;
 use std::{
     f64::INFINITY,
@@ -145,7 +148,11 @@ const K: f64 = 8.99e9;
 // This function calculates the field intensity at a point (x, y) caused by a
 // set of stationary charges. The function returns an XY struct containing the
 // field intnsity for x and y axis.
-fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> Option<XY<f64>> {
+fn field_intensity_movable(
+    x: f64,
+    y: f64,
+    stationary_charges: &Vec<StationaryCharge>,
+) -> Option<XY<f64>> {
     let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
         let r_sq =
@@ -284,7 +291,7 @@ impl CellGrid {
         // }
         grid
     }
-    
+
     fn populate_field(&mut self) {
         for (y, row) in self.cells.iter_mut().enumerate() {
             for (x, cell) in row.iter_mut().enumerate() {
@@ -435,7 +442,7 @@ struct Preferences {
 }
 
 // UI main loop
-async fn macroquad_display(cellgrid: &mut CellGrid) {            
+async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut steps_by_frame = 1000;
     let mut delta_t = 0.00000001;
     // TODO abstract the two above to speed and resolution
@@ -444,7 +451,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut charge_details = true;
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
-
 
     let mut save_movement_next_frame = false;
 
@@ -530,7 +536,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 if charge.q > 0. { RED } else { BLUE },
             );
 
-
             if draw_vectors {
                 // draw acceleration vector
                 const ACCELERATION_VECTOR_SCALE: f32 = 5. * 10e5;
@@ -570,17 +575,19 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             let mouse_x_scaled: f64 = (mouse_x / scale_x).into();
             let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
 
-            let intensity = field_intensity_movable(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges);
-
-            if intensity.is_none() {
-                continue;
-            }
-
-            let intensity = intensity.unwrap();
+            let intensity = field_intensity_movable(
+                mouse_x_scaled,
+                mouse_y_scaled,
+                &cellgrid.stationary_charges,
+            )
+            .unwrap_or(XY { x: 0., y: 0. });
 
             const INTENSITY_VECTOR_SCALE: f32 = 1. * 10e5;
 
-            let mut end_mouse = XY { x: mouse_x, y: mouse_y};
+            let mut end_mouse = XY {
+                x: mouse_x,
+                y: mouse_y,
+            };
             match mouse_charge {
                 MouseCharge::Positive => {
                     end_mouse.x += intensity.x as f32 / INTENSITY_VECTOR_SCALE;
@@ -640,7 +647,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                             let stringified_time = stringified_time
                                 .trim_end_matches('0')
                                 .trim_end_matches('.')
-                                .to_owned() + "s";
+                                .to_owned()
+                                + "s";
                             ui.label(stringified_time);
                             ui.end_row();
                             ui.label("FPS");
@@ -820,7 +828,7 @@ async fn main() {
     let mut rng = ChaCha8Rng::seed_from_u64(0);
     // let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..5000 {
+    for _ in 0..50 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
@@ -857,10 +865,9 @@ async fn main() {
 
             'simulation: for _ in 0..args.max_steps {
                 cellgrid.update_movable_charges(args.delta_t);
-               
+
                 for charge in cellgrid.movable_charges.iter() {
-                    if in_bounds(charge.x, charge.y, 0., cellgrid_w_f64, 0., cellgrid_h_f64)
-                    {
+                    if in_bounds(charge.x, charge.y, 0., cellgrid_w_f64, 0., cellgrid_h_f64) {
                         // if there is at least one charge inside
                         continue 'simulation;
                     }
