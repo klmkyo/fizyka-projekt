@@ -37,19 +37,6 @@ where
     x
 }
 
-// remove last character from a file, used to remove the newline character
-fn remove_last_char(file: &mut fs::File) {
-    file.seek(SeekFrom::End(-1))
-        .expect("Wystąpił błąd podczas przesuwania się w pliku");
-    file.set_len(
-        file.metadata()
-            .expect("Wystąpił błąd podczas pobierania metadanych pliku")
-            .len()
-            - 1,
-    )
-    .expect("Wystąpił błąd podczas zmniejszania rozmiaru pliku");
-}
-
 #[derive(Clone)]
 struct XY<T> {
     x: T,
@@ -322,8 +309,6 @@ impl CellGrid {
                 .expect("Nie można zapisać do pliku");
             }
         }
-        // remove the last newline
-        remove_last_char(&mut output_file);
     }
 
     fn display_intensity_color(&self) {
@@ -369,7 +354,6 @@ impl CellGrid {
                 }
             }
             // remove the last newline
-            remove_last_char(&mut output_file);
             output_file.flush().expect("Nie można wyczyścić bufora");
         }
     }
@@ -397,7 +381,6 @@ impl CellGrid {
             // thus why we check only one of them
             // in that case, we don't want to update the charge's position
             if intensity.is_none() {
-                println!("Kolizja");
                 movable_charge.collided = true;
                 movable_charge.should_move = false;
                 continue;
@@ -732,7 +715,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                             if cellgrid.track_movement {
                                 ui.label("Zapisz ruch");
                                 let button = egui::Button::new("Zapisz ruch");
-                                if ui.add_enabled(save_movement_next_frame, button).clicked() {
+                                if ui.add(button).clicked() {
                                     save_movement_next_frame = true;
                                 };
                                 ui.end_row();
@@ -779,10 +762,10 @@ struct Args {
     max_steps: u32,
 
     /// Przyjęta delta dla symulacji
-    #[arg(short, long, default_value_t = 0.01)]
+    #[arg(short, long, default_value_t = 0.00001)]
     delta_t: f64,
 
-    /// Czy symulacja powinna być przerwana po opuszczeniu siatki przez ładunek
+    /// Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
     #[arg(long, default_value_t = false)]
     stop_on_exit: bool,
 
