@@ -1,6 +1,7 @@
 use clap::Parser;
 use egui::Pos2;
 use macroquad::{self, prelude::{*, camera::mouse}};
+use rand_chacha::ChaCha8Rng;
 use std::{
     f64::INFINITY,
     fs,
@@ -10,7 +11,7 @@ use std::{
     time::Instant,
 };
 extern crate rand;
-use rand::{Rng};
+use rand::{Rng, SeedableRng};
 
 mod toggle;
 
@@ -144,7 +145,7 @@ const K: f64 = 8.99e9;
 // This function calculates the field intensity at a point (x, y) caused by a
 // set of stationary charges. The function returns an XY struct containing the
 // field intnsity for x and y axis.
-fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> XY<f64> {
+fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCharge>) -> Option<XY<f64>> {
     let mut intensity_xy = XY { x: 0.0, y: 0.0 };
     for stationary_charge in stationary_charges {
         let r_sq =
@@ -156,10 +157,7 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         // We return infinity in this case, which later on is interpreted as a
         // collision of charges.
         if r < 2. {
-            return XY {
-                x: INFINITY,
-                y: INFINITY,
-            };
+            return None;
         }
 
         // code for debugging
@@ -189,7 +187,7 @@ fn field_intensity_movable(x: f64, y: f64, stationary_charges: &Vec<StationaryCh
         //     y: intensity * angle.sin(),
         // };
     }
-    intensity_xy
+    Some(intensity_xy)
 }
 
 #[inline(always)]
@@ -391,12 +389,13 @@ impl CellGrid {
             // if the charge is too close to a stationary charge, field_intensity_movable returns Inf for all values
             // thus why we check only one of them
             // in that case, we don't want to update the charge's position
-            if intensity.x.is_infinite() {
+            if intensity.is_none() {
                 println!("Kolizja");
                 movable_charge.collided = true;
                 movable_charge.should_move = false;
                 continue;
             }
+            let intensity = intensity.unwrap();
 
             movable_charge.x +=
                 (movable_charge.v.x * delta_t) + (0.5 * movable_charge.a.x * delta_t.powi(2));
@@ -572,6 +571,12 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
 
             let intensity = field_intensity_movable(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges);
+
+            if intensity.is_none() {
+                continue;
+            }
+
+            let intensity = intensity.unwrap();
 
             const INTENSITY_VECTOR_SCALE: f32 = 1. * 10e5;
 
@@ -812,10 +817,10 @@ async fn main() {
     }
 
     // uncomment for fixed seed
-    // let mut rng = ChaCha8Rng::seed_from_u64(0);
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    // let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..50 {
+    for _ in 0..5000 {
         let x = rng.gen_range(0.0..cellgrid.w as f64);
         let y = rng.gen_range(0.0..cellgrid.h as f64);
         let q = rng.gen_range(-30.0..30.0);
