@@ -39,8 +39,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
 
-    let mut save_movement_next_frame = false;
-
     let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
     let mut image = Image::gen_image_color(cellgrid_w as u16, cellgrid_h as u16, BLACK);
     let texture = Texture2D::from_image(&image);
@@ -223,17 +221,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             running = !running;
         }
 
-        // we save on the next frame so that the user can see the saving message
-        if save_movement_next_frame {
-            cellgrid.save_movement_history();
-            save_movement_next_frame = false;
-        }
-        // save movement when S is pressed
-        if is_key_pressed(KeyCode::S) {
-            draw_text("Zapisywanie ruchu...", 10.0, 50.0, 20.0, WHITE);
-            save_movement_next_frame = true;
-        }
-
         egui_macroquad::ui(|egui_ctx| {
             let info_window = egui::Window::new("Informacje")
                 .default_pos(Pos2::new(10.0, 40.0))
@@ -329,20 +316,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                             ui.label("Pokaż wektory");
                             ui.add(toggle::toggle(&mut draw_vectors));
                             ui.end_row();
-
-                            // saving to a file
-                            ui.label("Zapisywanie ruchu");
-                            ui.add(toggle::toggle(&mut cellgrid.track_movement));
-                            ui.end_row();
-
-                            if cellgrid.track_movement {
-                                ui.label("Zapisz ruch");
-                                let button = egui::Button::new("Zapisz ruch");
-                                if ui.add(button).clicked() {
-                                    save_movement_next_frame = true;
-                                };
-                                ui.end_row();
-                            }
                         })
                 });
         });
@@ -396,7 +369,7 @@ struct Args {
     #[arg(long, default_value_t = false)]
     zapisz_pole: bool,
 
-    /// Czy zapisać ruch ładunków do pliku
+    /// Czy zapisać ruch ładunków do pliku (działa tylko bez GUI)
     #[arg(long, default_value_t = false)]
     zapisz_ruch: bool,
 }
@@ -411,7 +384,7 @@ async fn main() {
     }
 
     // read charges from file
-    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", args.zapisz_ruch);
+    let mut cellgrid = CellGrid::new_from_file("ładunki_stacjonarne.csv", args.zapisz_ruch);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
@@ -431,36 +404,41 @@ async fn main() {
     }
 
     // uncomment for fixed seed
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
-    let mut rng = rand::thread_rng();
+    // let mut rng = ChaCha8Rng::seed_from_u64(0);
+    // let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
 
     // 10^(-4)
-    const CHARGE_SCALE: f64 = 0.0001;
-    for _ in 0..50 {
-        let (cellgrid_width, cellgrid_height) = cellgrid.get_dimensions();
-        let x = rng.gen_range(0.0..cellgrid_width as f64);
-        let y = rng.gen_range(0.0..cellgrid_height as f64);
-        let q = rng.gen_range(-30.0 * CHARGE_SCALE ..30.0 * CHARGE_SCALE);
-        let m = rng.gen_range(0.0..20.0);
-        let v = XY {
-            x: rng.gen_range(-10.0..10.0),
-            y: rng.gen_range(-10.0..10.0),
-        };
-        let a = XY {
-            x: rng.gen_range(-10.0..10.0),
-            y: rng.gen_range(-10.0..10.0),
-        };
-        cellgrid.add_movable_charge(MovableCharge {
-            x,
-            y,
-            q,
-            m,
-            v,
-            a,
-            should_move: true,
-            collided: false,
-        });
+    // const CHARGE_SCALE: f64 = 0.0001;
+    // for _ in 0..50 {
+    //     let (cellgrid_width, cellgrid_height) = cellgrid.get_dimensions();
+    //     let x = rng.gen_range(0.0..cellgrid_width as f64);
+    //     let y = rng.gen_range(0.0..cellgrid_height as f64);
+    //     let q = rng.gen_range(-30.0 * CHARGE_SCALE ..30.0 * CHARGE_SCALE);
+    //     let m = rng.gen_range(0.0..20.0);
+    //     let v = XY {
+    //         x: rng.gen_range(-10.0..10.0),
+    //         y: rng.gen_range(-10.0..10.0),
+    //     };
+    //     let a = XY {
+    //         x: rng.gen_range(-10.0..10.0),
+    //         y: rng.gen_range(-10.0..10.0),
+    //     };
+    //     cellgrid.add_movable_charge(MovableCharge {
+    //         x,
+    //         y,
+    //         q,
+    //         m,
+    //         v,
+    //         a,
+    //         should_move: true,
+    //         collided: false,
+    //     });
+    // }
+
+    let movable_charges = MovableCharge::vec_from_file("ładunki_ruchome.csv");
+    for charge in movable_charges {
+        cellgrid.add_movable_charge(charge);
     }
 
     println!();
@@ -524,6 +502,12 @@ async fn main() {
         let save_time = start.elapsed().as_micros();
         println!("Czas zapisu: {}ms", save_time as f64 / 1000.0);
     } else {
+        if args.zapisz_ruch {
+            eprintln!("Opcja {} nie jest obsługiwana w trybie graficznym!", "--zapisz-ruch".to_string().bold());
+            eprintln!("Dodaj flagę {} aby wyłączyć interfejs graficzny, lub wyłącz zapisywanie ruchu", "--bez-gui".to_string().bold());
+            return;
+        }
+
         // display gui
         macroquad_display(&mut cellgrid).await;
     }

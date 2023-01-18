@@ -1,0 +1,5 @@
+# Podawanie ilości ruchomych ładunków nie jest potrzebne!
+#
+# Format:
+# <x> <y> <q> <m> <vx> <vy> <ax> <ay>
+160 120 -0.0008 1 100 -1000 0 0

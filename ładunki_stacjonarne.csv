@@ -1,0 +1,7 @@
+# Podawanie ilości stacjonarnych ładunków nie jest potrzebne!
+#
+# Format:
+# <x> <y> <q>
+50 130 -5
+120 90 5
+200 200 3
