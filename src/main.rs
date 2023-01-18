@@ -131,7 +131,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
             if draw_vectors {
                 // draw acceleration vector
-                const ACCELERATION_VECTOR_SCALE: f32 = 5. * 10e5;
+                const ACCELERATION_VECTOR_SCALE: f32 = 2.5 * 10e2;
                 draw_line(
                     charge_x_scaled,
                     charge_y_scaled,
@@ -144,7 +144,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 // draw velocity vector
                 let vx = charge.v.x;
                 let vy = charge.v.y;
-                const VELOCITY_VECTOR_SCALE: f32 = 1. * 10e3;
+                const VELOCITY_VECTOR_SCALE: f32 = 1. * 10e1;
                 draw_line(
                     charge_x_scaled,
                     charge_y_scaled,
