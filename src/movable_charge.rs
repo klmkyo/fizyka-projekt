@@ -1,14 +1,14 @@
-use crate::{lib::helpers::XY, cellgrid::StationaryCharge};
+use crate::{cellgrid::StationaryCharge, lib::helpers::XY};
 
 pub struct MovableCharge {
-  pub should_move: bool,
-  pub collided: bool,
-  pub x: f64,
-  pub y: f64,
-  pub q: f64,
-  pub m: f64,
-  pub v: XY<f64>,
-  pub a: XY<f64>,
+    pub should_move: bool,
+    pub collided: bool,
+    pub x: f64,
+    pub y: f64,
+    pub q: f64,
+    pub m: f64,
+    pub v: XY<f64>,
+    pub a: XY<f64>,
 }
 
 const K: f64 = 8.99e9;

@@ -1,4 +1,4 @@
-use std::{str::FromStr, io::Write};
+use std::{io::Write, str::FromStr};
 
 #[derive(Clone)]
 pub struct XY<T> {

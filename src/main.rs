@@ -3,28 +3,25 @@ use egui::Pos2;
 use lib::toggle;
 use macroquad::{
     self,
-    prelude::{camera::mouse, *},
+    prelude::{*},
 };
 use rand_chacha::ChaCha8Rng;
 use std::{
-    f64::INFINITY,
     fs,
-    io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
-    str::FromStr,
-    time::Instant, cell,
+    time::Instant,
 };
 extern crate rand;
-use rand::{Rng, SeedableRng};
 use colored::Colorize;
+use rand::{Rng, SeedableRng};
 
 pub mod cellgrid;
 use cellgrid::*;
 pub mod movable_charge;
 use movable_charge::*;
 
-use crate::lib::helpers::{XY, in_bounds};
 pub mod lib;
+use crate::lib::helpers::{in_bounds, XY};
 
 enum MouseCharge {
     Positive,
@@ -259,7 +256,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                             let stringified_delta_t = stringified_delta_t
                                 .trim_end_matches('0')
                                 .trim_end_matches('.');
-                            ui.label(&format!("{}", stringified_delta_t));
+                            ui.label(stringified_delta_t.to_string());
                             ui.end_row();
                             ui.label("Liczba ładunków ruchomych");
                             ui.label(&cellgrid.movable_charges.len().to_string());
@@ -445,15 +442,20 @@ async fn main() {
     //     });
     // }
 
-
     println!();
 
     if args.no_gui {
         // if there is neither save_field nor save_movement, just exit
         if !args.save_field && !args.save_movement {
             println!("Wybrano tryb bez interfejsu graficznego, ale nie wybrano żadnej z opcji zapisu! (wyniki nie zostaną zapisane)");
-            println!("Aby zapisać pole, użyj opcji {}", format!("--save-field").bold());
-            println!("Aby zapisać ruch ładunków, użyj opcji {}", format!("--save-movement").bold());
+            println!(
+                "Aby zapisać pole, użyj opcji {}",
+                "--save-field".to_string().bold()
+            );
+            println!(
+                "Aby zapisać ruch ładunków, użyj opcji {}",
+                "--save-movement".to_string().bold()
+            );
             return;
         }
 
