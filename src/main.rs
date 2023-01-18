@@ -21,7 +21,7 @@ pub mod movable_charge;
 use movable_charge::*;
 
 pub mod lib;
-use crate::lib::helpers::{in_bounds, XY};
+use crate::lib::helpers::{in_bounds, XY, ensure_files_exist};
 
 enum MouseCharge {
     Positive,
@@ -378,10 +378,7 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
-    // create output directory if it doesn't exist
-    if !Path::new("output").exists() {
-        fs::create_dir("output").unwrap();
-    }
+    ensure_files_exist();
 
     // read charges from file
     let mut cellgrid = CellGrid::new_from_file("ładunki_stacjonarne.csv", args.zapisz_ruch);

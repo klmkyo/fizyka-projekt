@@ -1,4 +1,4 @@
-use std::{io::Write, str::FromStr};
+use std::{io::Write, str::FromStr, path::Path, fs};
 
 #[derive(Clone)]
 pub struct XY<T> {
@@ -61,4 +61,32 @@ pub fn print_color(number: f64, max_g: f64, max_y: f64) {
 #[inline(always)]
 pub fn in_bounds<T: PartialOrd>(x: T, y: T, min_x: T, max_x: T, min_y: T, max_y: T) -> bool {
     x > min_x && x < max_x && y > min_y && y < max_y
+}
+
+pub fn ensure_files_exist() {
+    if !Path::new("output").exists() {
+        fs::create_dir("output").unwrap();
+    }
+
+    if !Path::new("ładunki_ruchome.txt").exists() {
+        fs::write("ładunki_ruchome.txt", "").expect("Wystąpił błą∂ podczas tworzenia pliku ładunki_ruchome.txt");
+        let contents = "# Podawanie ilości ruchomych ładunków nie jest potrzebne!
+        #
+        # Format:
+        # <x> <y> <q> <m> <vx> <vy> <ax> <ay>
+        160 120 -0.0008 1 100 -1000 0 0";
+        fs::write("ładunki_ruchome.txt", contents).expect("Wystąpił błąd podczas zapisywania do pliku ładunki_ruchome.txt");
+    }
+
+    if !Path::new("ładunki_stacjonarne.txt").exists() {
+        fs::write("ładunki_stacjonarne.txt", "").expect("Wystąpił błąd podczas tworzenia pliku ładunki_stacjonarne.txt");
+        let contents = "# Podawanie ilości stacjonarnych ładunków nie jest potrzebne!
+        #
+        # Format:
+        # <x> <y> <q>
+        50 130 -5
+        120 90 5
+        200 200 3";
+        fs::write("ładunki_stacjonarne.txt", contents).expect("Wystąpił błąd podczas zapisywania do pliku ładunki_stacjonarne.txt");
+    }
 }
