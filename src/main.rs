@@ -15,6 +15,7 @@ use std::{
 };
 extern crate rand;
 use rand::{Rng, SeedableRng};
+use colored::Colorize;
 
 mod toggle;
 
@@ -762,7 +763,7 @@ struct Args {
     max_steps: u32,
 
     /// Przyjęta delta dla symulacji
-    #[arg(short, long, default_value_t = 0.00001)]
+    #[arg(short, long, default_value_t = 0.000001)]
     delta_t: f64,
 
     /// Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
@@ -811,33 +812,50 @@ async fn main() {
     let mut rng = ChaCha8Rng::seed_from_u64(0);
     // let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    for _ in 0..50 {
-        let x = rng.gen_range(0.0..cellgrid.w as f64);
-        let y = rng.gen_range(0.0..cellgrid.h as f64);
-        let q = rng.gen_range(-30.0..30.0);
-        let m = rng.gen_range(0.0..20.0);
-        let v = XY {
-            x: rng.gen_range(-10.0..10.0),
-            y: rng.gen_range(-10.0..10.0),
-        };
-        let a = XY {
-            x: rng.gen_range(-10.0..10.0),
-            y: rng.gen_range(-10.0..10.0),
-        };
-        cellgrid.add_movable_charge(MovableCharge {
-            x,
-            y,
-            q,
-            m,
-            v,
-            a,
-            should_move: true,
-            collided: false,
-        });
-    }
+    // for _ in 0..50 {
+    //     let x = rng.gen_range(0.0..cellgrid.w as f64);
+    //     let y = rng.gen_range(0.0..cellgrid.h as f64);
+    //     let q = rng.gen_range(-30.0..30.0);
+    //     let m = rng.gen_range(0.0..20.0);
+    //     let v = XY {
+    //         x: rng.gen_range(-10.0..10.0),
+    //         y: rng.gen_range(-10.0..10.0),
+    //     };
+    //     let a = XY {
+    //         x: rng.gen_range(-10.0..10.0),
+    //         y: rng.gen_range(-10.0..10.0),
+    //     };
+    //     cellgrid.add_movable_charge(MovableCharge {
+    //         x,
+    //         y,
+    //         q,
+    //         m,
+    //         v,
+    //         a,
+    //         should_move: true,
+    //         collided: false,
+    //     });
+    // }
+
+
     println!();
 
     if args.no_gui {
+        // if there is neither save_field nor save_movement, just exit
+        if !args.save_field && !args.save_movement {
+            println!("Wybrano tryb bez interfejsu graficznego, ale nie wybrano żadnej z opcji zapisu! (wyniki nie zostaną zapisane)");
+            println!("Aby zapisać pole, użyj opcji {}", format!("--save-field").bold());
+            println!("Aby zapisać ruch ładunków, użyj opcji {}", format!("--save-movement").bold());
+            return;
+        }
+
+        if args.save_field {
+            println!("Zapisano pole do pliku output_grid.csv");
+        }
+
+        if !args.save_movement {
+            return;
+        }
         println!("Symulowanie przez max. {} kroków", args.max_steps);
 
         // simulation
