@@ -35,7 +35,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     // TODO abstract the two above to speed and resolution
     let mut running = false;
 
-    let mut charge_details = true;
+    let mut draw_details = true;
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
 
@@ -88,6 +88,10 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         // fit the grid to the screen
         let scale_x = screen_w / (cellgrid_w as f32);
         let scale_y = screen_h / (cellgrid_h as f32);
+
+        let (mouse_x, mouse_y) = mouse_position();
+        let mouse_x_scaled: f64 = (mouse_x / scale_x).into();
+        let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
 
         // draw stretched texture
         draw_texture_ex(
@@ -151,19 +155,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                 );
             }
 
-            // show charge values above the charge (rounded to 2 decimal places), angle in degrees
-            if charge_details {
+            if draw_details {
+                // show charge values above the charge (rounded to 2 decimal places), angle in degrees
                 draw_text(&format!("x: {:.2}, y: {:.2}, q: {:.2}, m: {:.2}, v: ({:.2}, {:.2} | {:.2}°), a: ({:.2}, {:.2} | {:.2}°)", charge.x, charge.y, charge.q, charge.m, charge.v.x, charge.v.y, charge.v.angle().to_degrees(), charge.a.x, charge.a.y, charge.a.angle().to_degrees()), charge_x_scaled, charge_y_scaled - 20.0, 10.0, WHITE);
             }
         }
 
         // draw intensity vector at user's mouse position
         if draw_vectors {
-            let mouse_x = mouse_position().0;
-            let mouse_y = mouse_position().1;
-            let mouse_x_scaled: f64 = (mouse_x / scale_x).into();
-            let mouse_y_scaled: f64 = (mouse_y / scale_y).into();
-
             let intensity = field_intensity_movable(
                 mouse_x_scaled,
                 mouse_y_scaled,
@@ -198,6 +197,24 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                     MouseCharge::Positive => RED,
                     MouseCharge::Negative => BLUE,
                 },
+            );
+        }
+
+        if draw_details {
+             // print the field intensity at mouse position
+             let intensity = field_intensity_movable(
+                mouse_x_scaled,
+                mouse_y_scaled,
+                &cellgrid.stationary_charges,
+            )
+            .unwrap_or(XY { x: 0., y: 0. });
+
+            draw_text(
+                &format!("E: ({:.2}, {:.2} | {:.2}°)", intensity.x, intensity.y, intensity.angle().to_degrees()),
+                mouse_x as f32 + 10.0,
+                mouse_y as f32 - 10.0,
+                10.0,
+                WHITE,
             );
         }
 
@@ -307,7 +324,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
                             ui.add(egui::DragValue::new(&mut delta_t).speed(0.01));
                             ui.end_row();
                             ui.label("Informacje o ładunkach");
-                            ui.add(toggle::toggle(&mut charge_details));
+                            ui.add(toggle::toggle(&mut draw_details));
                             ui.end_row();
                             ui.label("Pokaż wektory");
                             ui.add(toggle::toggle(&mut draw_vectors));
@@ -361,11 +378,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 struct Args {
     /// Nie pokazuj okna z symulacją
     #[arg(long, default_value_t = false)]
-    no_gui: bool,
+    bez_gui: bool,
 
     /// Maksymalna liczba kroków symulacji
     #[arg(short, long, default_value_t = 10000)]
-    max_steps: u32,
+    max_krokow: u32,
 
     /// Przyjęta delta dla symulacji
     #[arg(short, long, default_value_t = 0.000001)]
@@ -373,15 +390,15 @@ struct Args {
 
     /// Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
     #[arg(long, default_value_t = false)]
-    stop_on_exit: bool,
+    zakoncz_po_opuszczeniu: bool,
 
     /// Czy zapisać natężenie pola do pliku
     #[arg(long, default_value_t = false)]
-    save_field: bool,
+    zapisz_pole: bool,
 
     /// Czy zapisać ruch ładunków do pliku
     #[arg(long, default_value_t = false)]
-    save_movement: bool,
+    zapisz_ruch: bool,
 }
 
 #[macroquad::main("Symulacja")]
@@ -394,88 +411,92 @@ async fn main() {
     }
 
     // read charges from file
-    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", args.save_movement);
+    let mut cellgrid = CellGrid::new_from_file("ładunki.csv", args.zapisz_ruch);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
     }
 
     // calculate the field only for saving or gui background
-    if args.save_field || !args.no_gui {
+    if args.zapisz_pole || !args.bez_gui {
         let start = Instant::now();
         cellgrid.populate_field();
         let populate_time = start.elapsed().as_micros();
         // cellgrid.display_potential_color();
         println!("Czas obliczeń: {}ms", populate_time as f64 / 1000.0);
 
-        if args.save_field {
+        if args.zapisz_pole {
             cellgrid.save_grid_to_file("output/output_grid.csv");
         }
     }
 
     // uncomment for fixed seed
     let mut rng = ChaCha8Rng::seed_from_u64(0);
-    // let mut rng = rand::thread_rng();
+    let mut rng = rand::thread_rng();
     // add multiple charges, coming from all directions, all places, at different speeds
-    // for _ in 0..50 {
-    //     let x = rng.gen_range(0.0..cellgrid.w as f64);
-    //     let y = rng.gen_range(0.0..cellgrid.h as f64);
-    //     let q = rng.gen_range(-30.0..30.0);
-    //     let m = rng.gen_range(0.0..20.0);
-    //     let v = XY {
-    //         x: rng.gen_range(-10.0..10.0),
-    //         y: rng.gen_range(-10.0..10.0),
-    //     };
-    //     let a = XY {
-    //         x: rng.gen_range(-10.0..10.0),
-    //         y: rng.gen_range(-10.0..10.0),
-    //     };
-    //     cellgrid.add_movable_charge(MovableCharge {
-    //         x,
-    //         y,
-    //         q,
-    //         m,
-    //         v,
-    //         a,
-    //         should_move: true,
-    //         collided: false,
-    //     });
-    // }
+
+    // 10^(-4)
+    const CHARGE_SCALE: f64 = 0.0001;
+    for _ in 0..50 {
+        let (cellgrid_width, cellgrid_height) = cellgrid.get_dimensions();
+        let x = rng.gen_range(0.0..cellgrid_width as f64);
+        let y = rng.gen_range(0.0..cellgrid_height as f64);
+        let q = rng.gen_range(-30.0 * CHARGE_SCALE ..30.0 * CHARGE_SCALE);
+        let m = rng.gen_range(0.0..20.0);
+        let v = XY {
+            x: rng.gen_range(-10.0..10.0),
+            y: rng.gen_range(-10.0..10.0),
+        };
+        let a = XY {
+            x: rng.gen_range(-10.0..10.0),
+            y: rng.gen_range(-10.0..10.0),
+        };
+        cellgrid.add_movable_charge(MovableCharge {
+            x,
+            y,
+            q,
+            m,
+            v,
+            a,
+            should_move: true,
+            collided: false,
+        });
+    }
 
     println!();
 
-    if args.no_gui {
+    if args.bez_gui {
         // if there is neither save_field nor save_movement, just exit
-        if !args.save_field && !args.save_movement {
+        if !args.zapisz_pole && !args.zapisz_ruch {
             println!("Wybrano tryb bez interfejsu graficznego, ale nie wybrano żadnej z opcji zapisu! (wyniki nie zostaną zapisane)");
             println!(
                 "Aby zapisać pole, użyj opcji {}",
-                "--save-field".to_string().bold()
+                "--zapisz-pole".to_string().bold()
             );
             println!(
                 "Aby zapisać ruch ładunków, użyj opcji {}",
-                "--save-movement".to_string().bold()
+                "--zapisz-ruch".to_string().bold()
             );
             return;
         }
 
-        if args.save_field {
+        if args.zapisz_pole {
             println!("Zapisano pole do pliku output_grid.csv");
         }
 
-        if !args.save_movement {
+        if !args.zapisz_ruch {
             return;
         }
-        println!("Symulowanie przez max. {} kroków", args.max_steps);
+        println!("Symulowanie przez max. {} kroków", args.max_krokow);
 
         // simulation
         let start = Instant::now();
-        if args.stop_on_exit {
+        if args.zakoncz_po_opuszczeniu {
             let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
             let cellgrid_w_f64 = cellgrid_w as f64;
             let cellgrid_h_f64 = cellgrid_h as f64;
 
-            'simulation: for _ in 0..args.max_steps {
+            'simulation: for _ in 0..args.max_krokow {
                 cellgrid.update_movable_charges(args.delta_t);
 
                 for charge in cellgrid.movable_charges.iter() {
@@ -489,7 +510,7 @@ async fn main() {
                 break 'simulation;
             }
         } else {
-            for _ in 0..args.max_steps {
+            for _ in 0..args.max_krokow {
                 cellgrid.update_movable_charges(args.delta_t);
             }
         }
