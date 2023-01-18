@@ -9,7 +9,7 @@ use rand_chacha::ChaCha8Rng;
 use std::{
     fs,
     path::Path,
-    time::Instant,
+    time::Instant, cell,
 };
 extern crate rand;
 use colored::Colorize;
@@ -39,7 +39,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
 
-    let mut save_movement_next_frame = false;
+    let mut track_movment_toggle = false;
 
     let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
     let mut image = Image::gen_image_color(cellgrid_w as u16, cellgrid_h as u16, BLACK);
@@ -72,6 +72,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     texture.update(&image);
 
     loop {
+        // if tracking_movement is different than what cellgrid is set to, update cellgrid
+        if track_movment_toggle != cellgrid.is_tracking_movement() {
+            cellgrid.set_movement_tracking(track_movment_toggle);
+        }
+
         screen_h = screen_height();
         screen_w = screen_width();
 
@@ -223,17 +228,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             running = !running;
         }
 
-        // we save on the next frame so that the user can see the saving message
-        if save_movement_next_frame {
-            cellgrid.save_movement_history();
-            save_movement_next_frame = false;
-        }
-        // save movement when S is pressed
-        if is_key_pressed(KeyCode::S) {
-            draw_text("Zapisywanie ruchu...", 10.0, 50.0, 20.0, WHITE);
-            save_movement_next_frame = true;
-        }
-
         egui_macroquad::ui(|egui_ctx| {
             let info_window = egui::Window::new("Informacje")
                 .default_pos(Pos2::new(10.0, 40.0))
@@ -332,17 +326,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
                             // saving to a file
                             ui.label("Zapisywanie ruchu");
-                            ui.add(toggle::toggle(&mut cellgrid.track_movement));
+                            ui.add(toggle::toggle(&mut track_movment_toggle));
                             ui.end_row();
-
-                            if cellgrid.track_movement {
-                                ui.label("Zapisz ruch");
-                                let button = egui::Button::new("Zapisz ruch");
-                                if ui.add(button).clicked() {
-                                    save_movement_next_frame = true;
-                                };
-                                ui.end_row();
-                            }
                         })
                 });
         });
@@ -437,7 +422,7 @@ async fn main() {
 
     // 10^(-4)
     const CHARGE_SCALE: f64 = 0.0001;
-    for _ in 0..50 {
+    for i in 0..50 {
         let (cellgrid_width, cellgrid_height) = cellgrid.get_dimensions();
         let x = rng.gen_range(0.0..cellgrid_width as f64);
         let y = rng.gen_range(0.0..cellgrid_height as f64);
@@ -451,16 +436,14 @@ async fn main() {
             x: rng.gen_range(-10.0..10.0),
             y: rng.gen_range(-10.0..10.0),
         };
-        cellgrid.add_movable_charge(MovableCharge {
+        cellgrid.add_movable_charge(
             x,
             y,
             q,
             m,
             v,
-            a,
-            should_move: true,
-            collided: false,
-        });
+            a
+        );
     }
 
     println!();
@@ -516,13 +499,6 @@ async fn main() {
         }
         let update_time = start.elapsed().as_micros();
         println!("Czas obliczeń: {}ms", update_time as f64 / 1000.0);
-
-        // saving movement history to file
-        println!("Zapisywanie ruchu do pliku");
-        let start = Instant::now();
-        cellgrid.save_movement_history();
-        let save_time = start.elapsed().as_micros();
-        println!("Czas zapisu: {}ms", save_time as f64 / 1000.0);
     } else {
         // display gui
         macroquad_display(&mut cellgrid).await;

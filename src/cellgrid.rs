@@ -43,8 +43,7 @@ pub struct CellGrid {
     pub stationary_charges: Vec<StationaryCharge>,
     pub movable_charges: Vec<MovableCharge>,
     // movement stuff
-    pub track_movement: bool,
-    movement_history: Vec<Vec<MovementStep>>,
+    track_movement: bool,
 }
 
 impl CellGrid {
@@ -66,8 +65,7 @@ impl CellGrid {
             cells,
             stationary_charges: Vec::new(),
             movable_charges: Vec::new(),
-            track_movement: save_movement,
-            movement_history: Vec::new(),
+            track_movement: save_movement
         }
     }
 
@@ -154,40 +152,12 @@ impl CellGrid {
             println!();
         }
     }
-
-    pub fn save_movement_history(&self) {
-        // TODO make this work better with multiple charges
-
-        // check if the movement history is enabled
-        if !self.track_movement {
-            panic!("Nie można zapisać historii ruchu, gdy opcja jest wyłączona!");
+    pub fn add_movable_charge(&mut self, x: f64, y: f64, q: f64, m: f64, v: XY<f64>, a: XY<f64>) {
+        self.movable_charges.push(MovableCharge::new(self.movable_charges.len(), x, y, q, m, v, a, true));
+        if self.track_movement {
+            // make sure that there is an empty .csv file for the charge to save its movement to
+            fs::File::create(format!("charge_{}.csv", self.movable_charges.len() - 1)).expect("Nie można utworzyć pliku");
         }
-
-        for i in 0..self.movable_charges.len() {
-            // output/charge_[i].csv
-            let mut output_file = fs::File::create(format!("output/charge_{}.csv", i))
-                .expect("Nie można utworzyć pliku");
-            {
-                let mut output_file_buffer = BufWriter::new(&mut output_file);
-                for step in &self.movement_history[i] {
-                    writeln!(
-                        output_file_buffer,
-                        // write with 6 decimal places
-                        "{:.6}, {:.6}, {:.6}, {:.6}, {:.6}, {:.6}",
-                        step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
-                    )
-                    .expect("Nie można zapisać do pliku");
-                }
-            }
-            // remove the last newline
-            output_file.flush().expect("Nie można wyczyścić bufora");
-        }
-    }
-
-    pub fn add_movable_charge(&mut self, charge: MovableCharge) {
-        self.movable_charges.push(charge);
-        // add a new vector to the movement history
-        self.movement_history.push(Vec::new());
     }
 
     pub fn update_movable_charges(&mut self, delta_t: f64) {
@@ -225,14 +195,63 @@ impl CellGrid {
             movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
 
             if self.track_movement {
-                self.movement_history[i].push(MovementStep {
-                    x: movable_charge.x,
-                    y: movable_charge.y,
-                    a: movable_charge.a.clone(),
-                    v: movable_charge.v.clone(),
-                });
+                movable_charge.append_history_to_file();
+            }
+
+            // for i in 0..self.movable_charges.len() {
+            //     // output/charge_[i].csv
+            //     let mut output_file = fs::File::create(format!("output/charge_{}.csv", i))
+            //         .expect("Nie można utworzyć pliku");
+            //     {
+            //         let mut output_file_buffer = BufWriter::new(&mut output_file);
+            //         for step in &self.movement_history[i] {
+            //             writeln!(
+            //                 output_file_buffer,
+            //                 // write with 6 decimal places
+            //                 "{:.6}, {:.6}, {:.6}, {:.6}, {:.6}, {:.6}",
+            //                 step.x, step.y, step.v.x, step.v.y, step.a.x, step.a.y
+            //             )
+            //             .expect("Nie można zapisać do pliku");
+            //         }
+            //     }
+            //     // remove the last newline
+            //     output_file.flush().expect("Nie można wyczyścić bufora");
+            // }
+        }
+    }
+
+    pub fn set_movement_tracking(&mut self, b: bool) {
+        self.track_movement = b;
+
+        if self.track_movement {
+            // clean the output directory from charge files
+            // create the dir if it doesn't exist
+
+            fs::create_dir_all("output").expect("Nie można utworzyć katalogu");
+            for entry in fs::read_dir("output").expect("Nie można odczytać katalogu") {
+                // remove all charge_x.csv files
+                let entry = entry.expect("Nie można odczytać pliku");
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(file_name) = path.file_name() {
+                        if let Some(file_name) = file_name.to_str() {
+                            if file_name.starts_with("charge_") {
+                                fs::remove_file(path).expect("Nie można usunąć pliku");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // make sure that all the charges have an empty .csv file for the charge to save its movement to
+            for i in 0..self.movable_charges.len() {
+                fs::File::create(format!("output/charge_{}.csv", i)).expect("Nie można utworzyć pliku");
             }
         }
+    }
+
+    pub fn is_tracking_movement(&self) -> bool {
+        self.track_movement
     }
 }
 

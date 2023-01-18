@@ -1,6 +1,8 @@
 use crate::{cellgrid::StationaryCharge, lib::helpers::XY};
+use std::{io::Write, fs::OpenOptions};
 
 pub struct MovableCharge {
+    id: usize,
     pub should_move: bool,
     pub collided: bool,
     pub x: f64,
@@ -9,6 +11,45 @@ pub struct MovableCharge {
     pub m: f64,
     pub v: XY<f64>,
     pub a: XY<f64>,
+}
+
+impl MovableCharge {
+    #[inline(always)]
+    pub fn append_history_to_file(&self){
+        // path is output/charge_{id}.csv
+        let path = format!("output/charge_{}.csv", self.id);
+        
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        
+        writeln!(file, "{}, {}, {}, {}, {}, {}, {}, {}", self.x, self.y, self.q, self.m, self.v.x, self.v.y, self.a.x, self.a.y).unwrap();
+    }
+
+    pub fn new(
+        id: usize,
+        x: f64,
+        y: f64,
+        q: f64,
+        m: f64,
+        v: XY<f64>,
+        a: XY<f64>,
+        should_move: bool,
+    ) -> Self {
+        Self {
+            id,
+            should_move,
+            collided: false,
+            x,
+            y,
+            q,
+            m,
+            v,
+            a,
+        }
+    }
 }
 
 const K: f64 = 8.99e9;
