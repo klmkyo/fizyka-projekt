@@ -1,16 +1,9 @@
 use clap::Parser;
 use egui::Pos2;
 use lib::toggle;
-use macroquad::{
-    self,
-    prelude::{*},
-};
+use macroquad::{self, prelude::*};
 use rand_chacha::ChaCha8Rng;
-use std::{
-    fs,
-    path::Path,
-    time::Instant,
-};
+use std::{fs, path::Path, time::Instant};
 extern crate rand;
 use colored::Colorize;
 use rand::{Rng, SeedableRng};
@@ -21,7 +14,7 @@ pub mod movable_charge;
 use movable_charge::*;
 
 pub mod lib;
-use crate::lib::helpers::{in_bounds, XY, ensure_files_exist};
+use crate::lib::helpers::{ensure_files_exist, in_bounds, XY};
 
 enum MouseCharge {
     Positive,
@@ -199,8 +192,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
         }
 
         if draw_details {
-             // print the field intensity at mouse position
-             let intensity = field_intensity_movable(
+            // print the field intensity at mouse position
+            let intensity = field_intensity_movable(
                 mouse_x_scaled,
                 mouse_y_scaled,
                 &cellgrid.stationary_charges,
@@ -208,7 +201,12 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
             .unwrap_or(XY { x: 0., y: 0. });
 
             draw_text(
-                &format!("E: ({:.2}, {:.2} | {:.2}°)", intensity.x, intensity.y, intensity.angle().to_degrees()),
+                &format!(
+                    "E: ({:.2}, {:.2} | {:.2}°)",
+                    intensity.x,
+                    intensity.y,
+                    intensity.angle().to_degrees()
+                ),
                 mouse_x as f32 + 10.0,
                 mouse_y as f32 - 10.0,
                 10.0,
@@ -500,8 +498,14 @@ async fn main() {
         println!("Czas zapisu: {}ms", save_time as f64 / 1000.0);
     } else {
         if args.zapisz_ruch {
-            eprintln!("Opcja {} nie jest obsługiwana w trybie graficznym!", "--zapisz-ruch".to_string().bold());
-            eprintln!("Dodaj flagę {} aby wyłączyć interfejs graficzny, lub wyłącz zapisywanie ruchu", "--bez-gui".to_string().bold());
+            eprintln!(
+                "Opcja {} nie jest obsługiwana w trybie graficznym!",
+                "--zapisz-ruch".to_string().bold()
+            );
+            eprintln!(
+                "Dodaj flagę {} aby wyłączyć interfejs graficzny, lub wyłącz zapisywanie ruchu",
+                "--bez-gui".to_string().bold()
+            );
             return;
         }
 

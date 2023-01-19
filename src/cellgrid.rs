@@ -81,7 +81,7 @@ impl CellGrid {
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
         let lines = contents.lines();
         // let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
-        for (i, line) in lines.enumerate().filter( |(_, line)| !line.starts_with("#") ) {
+        for (i, line) in lines.enumerate().filter(|(_, line)| !line.starts_with("#")) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() != 3 {
                 panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);

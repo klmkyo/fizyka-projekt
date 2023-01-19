@@ -1,4 +1,4 @@
-use std::fs::{File, self};
+use std::fs::{self, File};
 
 use crate::{cellgrid::StationaryCharge, lib::helpers::XY};
 
@@ -14,12 +14,13 @@ pub struct MovableCharge {
 }
 
 impl MovableCharge {
-    pub fn vec_from_file(path: &str) -> Vec<MovableCharge>{
+    pub fn vec_from_file(path: &str) -> Vec<MovableCharge> {
         // file format is
         // <x> <y> <q> <m> <vx> <vy> <ax> <ay>
 
         // read the file
-        let file = fs::read_to_string(path).unwrap_or_else(|_| panic!("Nie można odczytać pliku {}", path));
+        let file = fs::read_to_string(path)
+            .unwrap_or_else(|_| panic!("Nie można odczytać pliku {}", path));
         // split the file into lines
         let lines = file.lines();
         // create a vector to store the movable charges
@@ -36,22 +37,38 @@ impl MovableCharge {
             let movable_charge = MovableCharge {
                 should_move: true,
                 collided: false,
-                x: words[0].parse().unwrap_or_else(|_| panic!("Nie można odczytać x w linii {} pliku {}", i, path)),
-                y: words[1].parse().unwrap_or_else(|_| panic!("Nie można odczytać y w linii {} pliku {}", i, path)),
-                q: words[2].parse().unwrap_or_else(|_| panic!("Nie można odczytać q w linii {} pliku {}", i, path)),
-                m: words[3].parse().unwrap_or_else(|_| panic!("Nie można odczytać m w linii {} pliku {}", i, path)),
+                x: words[0].parse().unwrap_or_else(|_| {
+                    panic!("Nie można odczytać x w linii {} pliku {}", i, path)
+                }),
+                y: words[1].parse().unwrap_or_else(|_| {
+                    panic!("Nie można odczytać y w linii {} pliku {}", i, path)
+                }),
+                q: words[2].parse().unwrap_or_else(|_| {
+                    panic!("Nie można odczytać q w linii {} pliku {}", i, path)
+                }),
+                m: words[3].parse().unwrap_or_else(|_| {
+                    panic!("Nie można odczytać m w linii {} pliku {}", i, path)
+                }),
                 v: XY {
-                    x: words[4].parse().unwrap_or_else(|_| panic!("Nie można odczytać vx w linii {} pliku {}", i, path)),
-                    y: words[5].parse().unwrap_or_else(|_| panic!("Nie można odczytać vy w linii {} pliku {}", i, path)),
+                    x: words[4].parse().unwrap_or_else(|_| {
+                        panic!("Nie można odczytać vx w linii {} pliku {}", i, path)
+                    }),
+                    y: words[5].parse().unwrap_or_else(|_| {
+                        panic!("Nie można odczytać vy w linii {} pliku {}", i, path)
+                    }),
                 },
                 a: XY {
-                    x: words[6].parse().unwrap_or_else(|_| panic!("Nie można odczytać ax w linii {} pliku {}", i, path)),
-                    y: words[7].parse().unwrap_or_else(|_| panic!("Nie można odczytać ay w linii {} pliku {}", i, path)),
-                }
+                    x: words[6].parse().unwrap_or_else(|_| {
+                        panic!("Nie można odczytać ax w linii {} pliku {}", i, path)
+                    }),
+                    y: words[7].parse().unwrap_or_else(|_| {
+                        panic!("Nie można odczytać ay w linii {} pliku {}", i, path)
+                    }),
+                },
             };
             movable_charges.push(movable_charge);
         }
-            
+
         movable_charges
     }
 }
