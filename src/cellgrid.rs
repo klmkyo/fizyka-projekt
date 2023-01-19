@@ -237,6 +237,11 @@ impl CellGrid {
             movable_charge.a.x = intensity.x * movable_charge.q / movable_charge.m;
             movable_charge.a.y = intensity.y * movable_charge.q / movable_charge.m;
 
+            // println!(
+            //     "x: {},\ty: {},\tv: {:?},\ta: {:?}",
+            //     movable_charge.x, movable_charge.y, movable_charge.v, movable_charge.a
+            // );
+
             if self.track_movement {
                 self.movement_history[i].push(MovementStep {
                     x: movable_charge.x,
