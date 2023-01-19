@@ -1,6 +1,6 @@
 use std::fs::{self, File};
 
-use crate::{cellgrid::StationaryCharge, lib::helpers::XY};
+use crate::{cellgrid::StationaryCharge, lib::helpers::{XY, K}};
 
 pub struct MovableCharge {
     pub should_move: bool,
@@ -72,8 +72,6 @@ impl MovableCharge {
         movable_charges
     }
 }
-
-const K: f64 = 8.99e9;
 
 // static mut lowest: f64 = INFINITY;
 

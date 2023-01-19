@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    lib::helpers::{print_color, XY},
+    lib::helpers::{print_color, XY, K},
     movable_charge::{field_intensity_movable, MovableCharge},
 };
 
@@ -262,12 +262,14 @@ fn field_intensity_potential(
                 potential: INFINITY,
             };
         }
+        
+        let factor = K * stationary_charge.q / (r_sq * r);
 
         intensity.x +=
-            (stationary_charge.q * (x as i32 - stationary_charge.x as i32) as f64) / r_sq;
+            factor * (x as i32 - stationary_charge.x as i32) as f64;
         intensity.y +=
-            (stationary_charge.q * (y as i32 - stationary_charge.y as i32) as f64) / r_sq;
-        potential += stationary_charge.q / r;
+            factor * (y as i32 - stationary_charge.y as i32) as f64;
+        potential += K * stationary_charge.q / r;
     }
     CellData {
         intensity,

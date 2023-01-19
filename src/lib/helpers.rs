@@ -94,3 +94,5 @@ pub fn ensure_files_exist() {
             .expect("Wystąpił błąd podczas zapisywania do pliku ladunki_stacjonarne.txt");
     }
 }
+
+pub const K: f64 = 8.99e9;
