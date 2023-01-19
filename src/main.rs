@@ -379,7 +379,7 @@ async fn main() {
     ensure_files_exist();
 
     // read charges from file
-    let mut cellgrid = CellGrid::new_from_file("ładunki_stacjonarne.txt", args.zapisz_ruch);
+    let mut cellgrid = CellGrid::new_from_file("ladunki_stacjonarne.txt", args.zapisz_ruch);
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
@@ -431,7 +431,7 @@ async fn main() {
     //     });
     // }
 
-    let movable_charges = MovableCharge::vec_from_file("ładunki_ruchome.txt");
+    let movable_charges = MovableCharge::vec_from_file("ladunki_ruchome.txt");
     for charge in movable_charges {
         cellgrid.add_movable_charge(charge);
     }
