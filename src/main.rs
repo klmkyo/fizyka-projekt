@@ -376,11 +376,6 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
-    // change working directory to the executable directory
-    let exe_path = std::env::current_exe().unwrap();
-    let exe_dir = exe_path.parent().unwrap();
-    std::env::set_current_dir(exe_dir).unwrap();
-
     ensure_files_exist();
 
     // read charges from file
