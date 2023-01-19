@@ -123,7 +123,7 @@ impl CellGrid {
                 // format: x, y, charge, Ex, Ey, E, V
                 writeln!(
                     output_file,
-                    "{:.6}, {:.6}, {:.6}, {:.6}, {:.6}, {:.6}, {:.6}",
+                    "{}, {}, {}, {}, {}, {}, {}",
                     x,
                     y,
                     cell.q,
