@@ -116,8 +116,21 @@ impl CellGrid {
         }
     }
 
+    pub fn field_intenity_90th_percentile(&self) -> f64 {
+        let mut intensities: Vec<f64> = Vec::new();
+        for row in &self.cells {
+            for cell in row {
+                intensities.push(cell.e.length());
+            }
+        }
+        intensities.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let index = (intensities.len() as f64 * 0.9) as usize;
+        intensities[index]
+    }
+
     pub fn save_grid_to_file(&self, file: &str) {
-        let mut output_file = fs::File::create(file).expect("Nie można utworzyć pliku");
+        let output_file_raw = fs::File::create(file).expect("Nie można utworzyć pliku");
+        let mut output_file = BufWriter::new(output_file_raw);
         for (y, row) in self.cells.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 // format: x, y, charge, Ex, Ey, E, V

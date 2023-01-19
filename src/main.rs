@@ -3,7 +3,7 @@ use egui::Pos2;
 use lib::toggle;
 use macroquad::{self, prelude::*};
 use rand_chacha::ChaCha8Rng;
-use std::{fs, path::Path, time::Instant};
+use std::{fs, path::Path, time::Instant, cell};
 extern crate rand;
 use colored::Colorize;
 use rand::{Rng, SeedableRng};
@@ -40,10 +40,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
     let mut time_elapsed: f64 = 0.;
 
+    let field_intenity_90th = cellgrid.field_intenity_90th_percentile();
+
+    println!("field_intenity_90th: {}", field_intenity_90th);
+
     // display intensity
     for (y, row) in cellgrid.cells.iter().enumerate() {
         for (x, cell) in row.iter().enumerate() {
-            let intensity = cell.e.length() as f32 * 35.;
+            let intensity = 1. * (cell.e.length() / field_intenity_90th) as f32;
             image.set_pixel(
                 x as u32,
                 y as u32,
@@ -380,6 +384,7 @@ async fn main() {
 
     // read charges from file
     let mut cellgrid = CellGrid::new_from_file("ladunki_stacjonarne.txt", args.zapisz_ruch);
+
     println!("Odczytane ładunki:");
     for charge in &cellgrid.stationary_charges {
         println!("x: {}, y: {}, q: {}", charge.x, charge.y, charge.q);
