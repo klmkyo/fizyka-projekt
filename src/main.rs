@@ -22,9 +22,9 @@ enum MouseCharge {
 }
 
 // UI main loop
-async fn macroquad_display(cellgrid: &mut CellGrid) {
-    let mut steps_by_frame = 1000;
-    let mut delta_t = 0.00000001;
+async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
+    let mut steps_by_frame = 1;
+    let mut delta_t = delta_t;
     // TODO abstract the two above to speed and resolution
     let mut running = false;
 
@@ -42,7 +42,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
 
     let field_intenity_90th = cellgrid.field_intenity_90th_percentile();
 
-    println!("field_intenity_90th: {}", field_intenity_90th);
+    // println!("field_intenity_90th: {}", field_intenity_90th);
 
     // display intensity
     for (y, row) in cellgrid.cells.iter().enumerate() {
@@ -355,25 +355,25 @@ struct Args {
     #[arg(long, default_value_t = false)]
     bez_gui: bool,
 
-    /// Maksymalna liczba kroków symulacji
-    #[arg(short, long, default_value_t = 10000)]
-    max_krokow: u32,
-
     /// Przyjęta delta dla symulacji
     #[arg(short, long, default_value_t = 0.000001)]
     delta_t: f64,
 
-    /// Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
+    /// (bez GUI) Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
     #[arg(long, default_value_t = false)]
     zakoncz_po_opuszczeniu: bool,
 
-    /// Czy zapisać natężenie pola do pliku
+    /// (bez GUI) Czy zapisać natężenie pola do pliku
     #[arg(long, default_value_t = false)]
     zapisz_pole: bool,
 
-    /// Czy zapisać ruch ładunków do pliku (działa tylko bez GUI)
+    /// (bez GUI) Czy zapisać ruch ładunków do pliku
     #[arg(long, default_value_t = false)]
     zapisz_ruch: bool,
+
+    /// (bez GUI) Maksymalna liczba kroków symulacji
+    #[arg(short, long, default_value_t = 10000)]
+    max_krokow: u32,
 }
 
 #[macroquad::main("Symulacja")]
@@ -515,6 +515,6 @@ async fn main() {
         }
 
         // display gui
-        macroquad_display(&mut cellgrid).await;
+        macroquad_display(&mut cellgrid, args.delta_t).await;
     }
 }
