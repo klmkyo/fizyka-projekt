@@ -43,7 +43,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid) {
     // display intensity
     for (y, row) in cellgrid.cells.iter().enumerate() {
         for (x, cell) in row.iter().enumerate() {
-            let intensity = cell.e.length() as f32 * 3.;
+            let intensity = cell.e.length() as f32 * 35.;
             image.set_pixel(
                 x as u32,
                 y as u32,
