@@ -117,6 +117,7 @@ pub fn field_intensity_movable(
 
         // another way to calculate the intensity vector
         // get the angle of the intensity vector
+        // let intensity = K * stationary_charge.q / (r_sq * r);
         // let angle = (y - stationary_charge.y as f64).atan2(x - stationary_charge.x as f64);
         // calculate the intensity vector using trigonometry
         // let result2 = XY {
