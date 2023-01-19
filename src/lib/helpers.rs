@@ -1,6 +1,6 @@
 use std::{fs, io::Write, path::Path, str::FromStr};
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct XY<T> {
     pub x: T,
     pub y: T,
