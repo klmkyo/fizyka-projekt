@@ -24,8 +24,8 @@ enum MouseCharge {
 fn fill_texture_with_intensity(
     potential_mode: bool,
     stationary_charges: &Vec<StationaryCharge>,
-    intensity_97th: f64,
-    potential_97th: f64,
+    intensity_percentile: f64,
+    potential_percentile: f64,
     cellgrid_w: usize,
     cellgrid_h: usize,
     screen_w: f32,
@@ -47,7 +47,7 @@ fn fill_texture_with_intensity(
             if potential_mode {
                 // if potential is greater than 0, then the charge is positive, so the color should be red
                 // if potential is less than 0, then the charge is negative, so the color should be blue
-                let saturation = (potential.abs() / potential_97th) as f32;
+                let saturation = (potential.abs() / potential_percentile) as f32;
                 let color = if potential > 0. {
                     // red
                     Color::new(saturation, 0., 0., 1.0)
@@ -62,7 +62,7 @@ fn fill_texture_with_intensity(
                 );
             }
             else {
-                let intensity = 100. * (intensity.abs() / intensity_97th) as f32;
+                let intensity = 100. * (intensity.abs() / intensity_percentile) as f32;
                 image.set_pixel(
                     x as u32,
                     y as u32,
@@ -72,7 +72,7 @@ fn fill_texture_with_intensity(
         }
     }
 
-    // let intensity = 1. * (cell.e.length() / field_intenity_97th) as f32;
+    // let intensity = 1. * (cell.e.length() / field_intenity_percentile) as f32;
     // image.set_pixel(
     //     x as u32,
     //     y as u32,
@@ -92,8 +92,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
     let mut draw_details = true;
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
-    let mut potential_display_mode = false;
-    let mut old_potential_display_mode = false;
+    let mut potential_display_mode = true;
+    let mut percentile = 0.95;
+
+    let mut old_potential_display_mode = potential_display_mode;
+    let mut old_percentile = percentile;
 
     let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
     let mut screen_h = screen_height();
@@ -102,23 +105,25 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
 
     let mut time_elapsed: f64 = 0.;
 
-    let (intensity_97th, potential_97th) = cellgrid.field_97th_percentiles();
+    let (mut intensity_percentile, mut potential_percentile) = cellgrid.field_percentiles(percentile);
 
     let velocity_vector_scale: f32 = 3. * 10e2;
     let acceleration_vector_scale: f64 = 1.8 * 10e6;
     let intensity_vector_scale: f32 = 4. * 10e-5;
 
-    // println!("field_intenity_97th: {}", field_intenity_97th);
+    // println!("field_intenity_percentile: {}", field_intenity_percentile);
 
-    texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_97th, potential_97th, cellgrid_w, cellgrid_h, screen_w, screen_h);
+    texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_percentile, potential_percentile, cellgrid_w, cellgrid_h, screen_w, screen_h);
 
     loop {
         let (new_screen_w, new_screen_h) = (screen_width(), screen_height());
 
-        if new_screen_w != screen_w || new_screen_h != screen_h || potential_display_mode != old_potential_display_mode {
-            texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_97th, potential_97th, cellgrid_w, cellgrid_h, screen_w, screen_h);
+        if new_screen_w != screen_w || new_screen_h != screen_h || potential_display_mode != old_potential_display_mode || percentile != old_percentile {
+            (intensity_percentile, potential_percentile) = cellgrid.field_percentiles(percentile);
+            texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_percentile, potential_percentile, cellgrid_w, cellgrid_h, screen_w, screen_h);
             (screen_w, screen_h) = (new_screen_w, new_screen_h);
             old_potential_display_mode = potential_display_mode;
+            old_percentile = percentile;
         }
 
         let start = Instant::now();
@@ -243,28 +248,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
             );
         }
 
-        if draw_details {
-            // print the field intensity at mouse position
-            let intensity = field_intensity_movable(
-                mouse_x_scaled,
-                mouse_y_scaled,
-                &cellgrid.stationary_charges,
-            )
-            .unwrap_or(XY { x: 0., y: 0. });
-
-            draw_text(
-                &format!(
-                    "E: ({:.2}, {:.2} | {:.2}°)",
-                    intensity.x,
-                    intensity.y,
-                    intensity.angle().to_degrees()
-                ),
-                mouse_x as f32 + 10.0,
-                mouse_y as f32 - 10.0,
-                10.0,
-                WHITE,
-            );
-        }
+        // if draw_details {
+        //     // print the field intensity at mouse position
+        //     let (intensity, potential) = field_intensity_potential(mouse_x_scaled, mouse_y_scaled, &cellgrid.stationary_charges).unwrap_or((0.,0.));
+        //     draw_text(&format!("E: {:.10}, V: {:.10}", intensity, potential), mouse_x, mouse_y - 20.0, 10.0, WHITE);
+        // }
 
         // pause when Space is pressed
         if is_key_pressed(KeyCode::Space) {
@@ -368,6 +356,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                             ui.end_row();
                             ui.label("Tło: ".to_owned() + if potential_display_mode {"potencjał"} else {"natężenie pola"});
                             ui.add(toggle::toggle(&mut potential_display_mode));
+                            ui.end_row();
+                            ui.label("Percentyl tła");
+                            ui.add(egui::Slider::new(&mut percentile, 0.0..=0.999).text(""));
                             ui.end_row();
                         })
                 });
