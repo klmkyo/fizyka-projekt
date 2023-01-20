@@ -127,3 +127,36 @@ pub fn field_intensity_movable(
     }
     Some(intensity_xy)
 }
+
+pub fn field_intensity_potential(
+    x: f64,
+    y: f64,
+    stationary_charges: &Vec<StationaryCharge>,
+) -> Option<(f64, f64)> {
+    let mut intensity = 0.0;
+    let mut potential = 0.0;
+    for stationary_charge in stationary_charges {
+        let r_sq =
+            (x - stationary_charge.x as f64).powi(2) + (y - stationary_charge.y as f64).powi(2);
+        let r = r_sq.sqrt();
+
+        // If the distance between the given point and the stationary charge is
+        // less than 2, the field intensity is goes way too high for accurate calculations.
+        // We return infinity in this case, which later on is interpreted as a
+        // collision of charges.
+        if r == 0. {
+            return None;
+        }
+
+        // The electric field intensity (E) at a point caused by a stationary
+        // charge is given by the formula E = k * q / r^3, where k is a constant,
+        // q is the charge of the stationary charge, and r is the distance to the
+        // point. We calculate the intensity of the field at the given point
+        // caused by the given stationary charge and add it to the total intensity
+        // vector.
+        let factor = K * stationary_charge.q / r;
+        intensity += factor / r_sq ;
+        potential += factor
+    }
+    Some((intensity, potential))
+}

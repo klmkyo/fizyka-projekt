@@ -3,7 +3,7 @@ use egui::Pos2;
 use lib::toggle;
 use macroquad::{self, prelude::*};
 use rand_chacha::ChaCha8Rng;
-use std::{fs, path::Path, time::Instant, cell};
+use std::{fs, path::Path, time::Instant, cell, f32::INFINITY};
 extern crate rand;
 use colored::Colorize;
 use rand::{Rng, SeedableRng};
@@ -21,6 +21,67 @@ enum MouseCharge {
     Negative,
 }
 
+fn fill_texture_with_intensity(
+    potential_mode: bool,
+    stationary_charges: &Vec<StationaryCharge>,
+    intensity_97th: f64,
+    potential_97th: f64,
+    cellgrid_w: usize,
+    cellgrid_h: usize,
+    screen_w: f32,
+    screen_h: f32,
+) -> Texture2D {
+    let mut image = Image::gen_image_color(screen_w as u16, screen_h as u16, BLACK);
+    // display intensity
+    for y in 0..screen_h as u32 {
+        for x in 0..screen_w as u32 {
+            let virtual_x = (x as f64 / screen_w as f64) * cellgrid_w as f64;
+            let virtual_y = (y as f64 / screen_h as f64) * cellgrid_h as f64;
+            let intensity_potential_option = field_intensity_potential(virtual_x, virtual_y, stationary_charges);
+
+            let (intensity, potential) = match intensity_potential_option {
+                Some((intensity, potential)) => (intensity, potential),
+                None => (f64::INFINITY, f64::INFINITY),
+            };
+
+            if potential_mode {
+                // if potential is greater than 0, then the charge is positive, so the color should be red
+                // if potential is less than 0, then the charge is negative, so the color should be blue
+                let saturation = (potential.abs() / potential_97th) as f32;
+                let color = if potential > 0. {
+                    // red
+                    Color::new(saturation, 0., 0., 1.0)
+                } else {
+                    // blue
+                    Color::new(0., 0., saturation, 1.0)
+                };
+                image.set_pixel(
+                    x as u32,
+                    y as u32,
+                    color,
+                );
+            }
+            else {
+                let intensity = 100. * (intensity.abs() / intensity_97th) as f32;
+                image.set_pixel(
+                    x as u32,
+                    y as u32,
+                    Color::new(intensity, intensity, intensity, 1.0),
+                );
+            }
+        }
+    }
+
+    // let intensity = 1. * (cell.e.length() / field_intenity_97th) as f32;
+    // image.set_pixel(
+    //     x as u32,
+    //     y as u32,
+    //     Color::new(intensity, intensity, intensity, 1.0),
+    // );
+
+    Texture2D::from_image(&image)
+}
+
 // UI main loop
 async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
     let mut steps_by_frame = 1;
@@ -31,44 +92,34 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
     let mut draw_details = true;
     let mut draw_vectors = true;
     let mut mouse_charge = MouseCharge::Positive;
+    let mut potential_display_mode = false;
+    let mut old_potential_display_mode = false;
 
     let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
-    let mut image = Image::gen_image_color(cellgrid_w as u16, cellgrid_h as u16, BLACK);
-    let texture = Texture2D::from_image(&image);
-    let mut screen_h;
-    let mut screen_w;
+    let mut screen_h = screen_height();
+    let mut screen_w = screen_width();
+    let mut texture = Texture2D::empty();
 
     let mut time_elapsed: f64 = 0.;
 
-    let field_intenity_90th = cellgrid.field_intenity_90th_percentile();
+    let (intensity_97th, potential_97th) = cellgrid.field_97th_percentiles();
 
-    // println!("field_intenity_90th: {}", field_intenity_90th);
+    let velocity_vector_scale: f32 = 3. * 10e2;
+    let acceleration_vector_scale: f64 = 1.8 * 10e6;
+    let intensity_vector_scale: f32 = 4. * 10e-5;
 
-    // display intensity
-    for (y, row) in cellgrid.cells.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
-            let intensity = 1. * (cell.e.length() / field_intenity_90th) as f32;
-            image.set_pixel(
-                x as u32,
-                y as u32,
-                Color::new(intensity, intensity, intensity, 1.0),
-            );
-        }
-    }
+    // println!("field_intenity_97th: {}", field_intenity_97th);
 
-    // display stationary charges
-    for charge in &cellgrid.stationary_charges {
-        let x = charge.x as u32;
-        let y = charge.y as u32;
-        let color = if charge.q > 0. { RED } else { BLUE };
-        image.set_pixel(x, y, color);
-    }
-
-    texture.update(&image);
+    texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_97th, potential_97th, cellgrid_w, cellgrid_h, screen_w, screen_h);
 
     loop {
-        screen_h = screen_height();
-        screen_w = screen_width();
+        let (new_screen_w, new_screen_h) = (screen_width(), screen_height());
+
+        if new_screen_w != screen_w || new_screen_h != screen_h || potential_display_mode != old_potential_display_mode {
+            texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_97th, potential_97th, cellgrid_w, cellgrid_h, screen_w, screen_h);
+            (screen_w, screen_h) = (new_screen_w, new_screen_h);
+            old_potential_display_mode = potential_display_mode;
+        }
 
         let start = Instant::now();
         if running {
@@ -126,12 +177,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
 
             if draw_vectors {
                 // draw acceleration vector
-                const ACCELERATION_VECTOR_SCALE: f32 = 2.5 * 10e2;
                 draw_line(
                     charge_x_scaled,
                     charge_y_scaled,
-                    charge_x_scaled + charge.a.x as f32 * scale_x / ACCELERATION_VECTOR_SCALE,
-                    charge_y_scaled + charge.a.y as f32 * scale_y / ACCELERATION_VECTOR_SCALE,
+                    charge_x_scaled + ((charge.a.x / acceleration_vector_scale) as f32 * scale_x),
+                    charge_y_scaled + ((charge.a.y / acceleration_vector_scale) as f32 * scale_y),
                     1.0,
                     YELLOW,
                 );
@@ -139,12 +189,11 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                 // draw velocity vector
                 let vx = charge.v.x;
                 let vy = charge.v.y;
-                const VELOCITY_VECTOR_SCALE: f32 = 1. * 10e1;
                 draw_line(
                     charge_x_scaled,
                     charge_y_scaled,
-                    charge_x_scaled + vx as f32 * scale_x / VELOCITY_VECTOR_SCALE,
-                    charge_y_scaled + vy as f32 * scale_y / VELOCITY_VECTOR_SCALE,
+                    charge_x_scaled + vx as f32 * scale_x / velocity_vector_scale,
+                    charge_y_scaled + vy as f32 * scale_y / velocity_vector_scale,
                     1.0,
                     BLUE,
                 );
@@ -165,7 +214,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
             )
             .unwrap_or(XY { x: 0., y: 0. });
 
-            const INTENSITY_VECTOR_SCALE: f32 = 1. * 10e5;
 
             let mut end_mouse = XY {
                 x: mouse_x,
@@ -173,12 +221,12 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
             };
             match mouse_charge {
                 MouseCharge::Positive => {
-                    end_mouse.x += intensity.x as f32 / INTENSITY_VECTOR_SCALE;
-                    end_mouse.y += intensity.y as f32 / INTENSITY_VECTOR_SCALE;
+                    end_mouse.x += intensity.x as f32 / intensity_vector_scale;
+                    end_mouse.y += intensity.y as f32 / intensity_vector_scale;
                 }
                 MouseCharge::Negative => {
-                    end_mouse.x -= intensity.x as f32 / INTENSITY_VECTOR_SCALE;
-                    end_mouse.y -= intensity.y as f32 / INTENSITY_VECTOR_SCALE;
+                    end_mouse.x -= intensity.x as f32 / intensity_vector_scale;
+                    end_mouse.y -= intensity.y as f32 / intensity_vector_scale;
                 }
             }
 
@@ -317,6 +365,9 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                             ui.end_row();
                             ui.label("Pokaż wektory");
                             ui.add(toggle::toggle(&mut draw_vectors));
+                            ui.end_row();
+                            ui.label("Tło: ".to_owned() + if potential_display_mode {"potencjał"} else {"natężenie pola"});
+                            ui.add(toggle::toggle(&mut potential_display_mode));
                             ui.end_row();
                         })
                 });

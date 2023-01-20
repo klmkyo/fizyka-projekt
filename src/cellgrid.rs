@@ -116,16 +116,21 @@ impl CellGrid {
         }
     }
 
-    pub fn field_intenity_90th_percentile(&self) -> f64 {
+    pub fn field_97th_percentiles(&self) -> (f64, f64) {
         let mut intensities: Vec<f64> = Vec::new();
+        let mut potentials: Vec<f64> = Vec::new();
         for row in &self.cells {
             for cell in row {
                 intensities.push(cell.e.length());
+                potentials.push(cell.v);
             }
         }
         intensities.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let index = (intensities.len() as f64 * 0.9) as usize;
-        intensities[index]
+        potentials.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let i_index = (intensities.len() as f64 * 0.97) as usize;
+        let p_index = (potentials.len() as f64 * 0.97) as usize;
+        
+        (intensities[i_index], potentials[p_index])
     }
 
     pub fn save_grid_to_file(&self, file: &str) {
