@@ -74,8 +74,10 @@ pub fn ensure_files_exist() {
         let contents = "# Podawanie ilości ruchomych ładunków nie jest potrzebne!
 #
 # Format:
-# <x> <y> <q> <m> <vx> <vy> <ax> <ay>
-160 120 -0.0008 1 100 -1000 0 0";
+# <x> <y> <q [C]> <m> <vx> <vy> <ax> <ay>
+160 120 -5e-9 1e-19 0 -1e5 0 0
+100 160 5e-9 1e-19 -4e2 1e5 0 0
+40 80 3e-9 1.3e-19 0 0 0 0";
         fs::write("ladunki_ruchome.txt", contents)
             .expect("Wystąpił błąd podczas zapisywania do pliku ladunki_ruchome.txt");
     }
@@ -87,9 +89,12 @@ pub fn ensure_files_exist() {
 #
 # Format:
 # <x> <y> <q>
-50 130 -5
-120 90 5
-200 200 3";
+50 130 -2e-9
+120 90 2e-9
+200 200 4e-9
+250 0 -2.5e-9
+0 250 2e-9
+245 190 -4e-9";
         fs::write("ladunki_stacjonarne.txt", contents)
             .expect("Wystąpił błąd podczas zapisywania do pliku ladunki_stacjonarne.txt");
     }
