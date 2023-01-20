@@ -20,9 +20,9 @@ Można edytować ładunki w odpowiednio w plikach `ladunki_stacjonarne.txt` i `l
 ## Parametry do programu
 ```
       --bez-gui                  Nie pokazuj okna z symulacją
-  -m, --max-krokow <MAX_KROKOW>  Maksymalna liczba kroków symulacji [default: 10000]
   -d, --delta-t <DELTA_T>        Przyjęta delta dla symulacji [default: 0.000001]
-      --zakoncz-po-opuszczeniu   Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
-      --zapisz-pole              Czy zapisać natężenie pola do pliku
-      --zapisz-ruch              Czy zapisać ruch ładunków do pliku (działa tylko bez GUI)
+      --zakoncz-po-opuszczeniu   (bez GUI) Czy symulacja powinna być przerwana gdy wszystkie ładunki opuszczą siatkę
+      --zapisz-pole              (bez GUI) Czy zapisać natężenie pola do pliku
+      --zapisz-ruch              (bez GUI) Czy zapisać ruch ładunków do pliku
+  -m, --max-krokow <MAX_KROKOW>  (bez GUI) Maksymalna liczba kroków symulacji [default: 10000]
 ```
