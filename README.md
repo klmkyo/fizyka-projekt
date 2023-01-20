@@ -1,10 +1,14 @@
 ## Instalacja
-```
+Do kompilacji wymagyny jest Rust: [Pobierz](https://www.rust-lang.org/tools/install)
+
+```bash
 git clone https://github.com/klmkyo/fizyka-projekt.git
 cd fizyka-projekt
 cargo run --release --
 #                      ^ tutaj można podać parametry
 ```
+
+Program można uruchamiać używając `cargo`, lub gotowy plik wykonywalny można znaleźć `target/release` po wybudowaniu przez `cargo build` (plik jest także tworzony także podczas `cargo run`)
 
 ## Korzystanie
 Jeśli chcemy uruchomić symulację z GUI, wystarczy uruchomić program bez parametrów.
