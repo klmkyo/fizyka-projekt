@@ -1,7 +1,7 @@
 use std::{
     f64::INFINITY,
     fs,
-    io::{BufWriter, Write},
+    io::{BufWriter, Write}, cmp::min,
 };
 
 use crate::{
@@ -135,8 +135,8 @@ impl CellGrid {
         }
         intensities.sort_by(|a, b| a.partial_cmp(b).unwrap());
         potentials.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let i_index = (intensities.len() as f64 * percentile) as usize;
-        let p_index = (potentials.len() as f64 * percentile) as usize;
+        let i_index = min((intensities.len() as f64 * percentile) as usize, intensities.len() - 1);
+        let p_index = min((potentials.len() as f64 * percentile) as usize, potentials.len() - 1);
         
         (intensities[i_index], potentials[p_index])
     }

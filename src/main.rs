@@ -358,7 +358,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                             ui.add(toggle::toggle(&mut potential_display_mode));
                             ui.end_row();
                             ui.label("Percentyl tła");
-                            ui.add(egui::Slider::new(&mut percentile, 0.0..=0.999).text(""));
+                            ui.add(egui::Slider::new(&mut percentile, 0.5..=0.999).text(""));
                             ui.end_row();
                         })
                 });
