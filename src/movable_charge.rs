@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self};
 
 use crate::{
     cellgrid::StationaryCharge,
@@ -29,7 +29,7 @@ impl MovableCharge {
         // create a vector to store the movable charges
         let mut movable_charges = Vec::new();
         // iterate over the lines
-        for (i, line) in lines.enumerate().filter(|(_, line)| !line.starts_with("#")) {
+        for (i, line) in lines.enumerate().filter(|(_, line)| !line.starts_with('#')) {
             let words: Vec<&str> = line.split_whitespace().collect();
 
             // check the number of words

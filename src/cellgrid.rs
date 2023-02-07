@@ -82,7 +82,7 @@ impl CellGrid {
         let contents = fs::read_to_string(file).expect("Nie można odczytać pliku");
         let lines = contents.lines();
         // let linecount: usize = lines.next().expect("Nie można odczytać liczby ładunków").parse().expect("Nie można przekonwertować liczby ładunków");
-        for (i, line) in lines.enumerate().filter(|(_, line)| !line.starts_with("#")) {
+        for (i, line) in lines.enumerate().filter(|(_, line)| !line.starts_with('#')) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() != 3 {
                 panic!("Nieprawidłowa ilość wartości w linijce {}", i + 2);
@@ -266,8 +266,8 @@ impl CellGrid {
                 self.movement_history[i].push(MovementStep {
                     x: movable_charge.x,
                     y: movable_charge.y,
-                    a: movable_charge.a.clone(),
-                    v: movable_charge.v.clone(),
+                    a: movable_charge.a,
+                    v: movable_charge.v,
                 });
             }
         }
@@ -287,8 +287,8 @@ fn field_intensity_potential(
     let mut intensity = XY { x: 0.0, y: 0.0 };
     let mut potential = 0.0;
     for stationary_charge in stationary_charges {
-        let r_sq = (((x as i32 - stationary_charge.x as i32).pow(2)
-            + (y as i32 - stationary_charge.y as i32).pow(2)) as f64);
+        let r_sq = ((x as i32 - stationary_charge.x as i32).pow(2)
+            + (y as i32 - stationary_charge.y as i32).pow(2)) as f64;
         let r = r_sq.sqrt();
 
         if r == 0.0 {

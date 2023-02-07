@@ -54,12 +54,12 @@ fn fill_texture_with_intensity(
                     // blue
                     Color::new(0., 0., saturation, 1.0)
                 };
-                image.set_pixel(x as u32, y as u32, color);
+                image.set_pixel(x, y, color);
             } else {
                 let intensity = 100. * (intensity.abs() / intensity_percentile) as f32;
                 image.set_pixel(
-                    x as u32,
-                    y as u32,
+                    x,
+                    y,
                     Color::new(intensity, intensity, intensity, 1.0),
                 );
             }
@@ -72,7 +72,7 @@ fn fill_texture_with_intensity(
     //     y as u32,
     //     Color::new(intensity, intensity, intensity, 1.0),
     // );
-
+        
     Texture2D::from_image(&image)
 }
 
@@ -95,8 +95,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
     let (cellgrid_w, cellgrid_h) = cellgrid.get_dimensions();
     let mut screen_h = screen_height();
     let mut screen_w = screen_width();
-    let mut texture = Texture2D::empty();
-
     let mut time_elapsed: f64 = 0.;
 
     let (mut intensity_percentile, mut potential_percentile) =
@@ -106,9 +104,7 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
     let acceleration_vector_scale: f64 = 1.8 * 10e6;
     let intensity_vector_scale: f32 = 4. * 10e-5;
 
-    // println!("field_intenity_percentile: {}", field_intenity_percentile);
-
-    texture = fill_texture_with_intensity(
+    let mut texture = fill_texture_with_intensity(
         potential_display_mode,
         &cellgrid.stationary_charges,
         intensity_percentile,
