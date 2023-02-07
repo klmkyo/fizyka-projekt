@@ -1,11 +1,12 @@
 use std::{
+    cmp::min,
     f64::INFINITY,
     fs,
-    io::{BufWriter, Write}, cmp::min,
+    io::{BufWriter, Write},
 };
 
 use crate::{
-    lib::helpers::{print_color, XY, K},
+    lib::helpers::{print_color, K, XY},
     movable_charge::{field_intensity_movable, MovableCharge},
 };
 
@@ -135,9 +136,15 @@ impl CellGrid {
         }
         intensities.sort_by(|a, b| a.partial_cmp(b).unwrap());
         potentials.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let i_index = min((intensities.len() as f64 * percentile) as usize, intensities.len() - 1);
-        let p_index = min((potentials.len() as f64 * percentile) as usize, potentials.len() - 1);
-        
+        let i_index = min(
+            (intensities.len() as f64 * percentile) as usize,
+            intensities.len() - 1,
+        );
+        let p_index = min(
+            (potentials.len() as f64 * percentile) as usize,
+            potentials.len() - 1,
+        );
+
         (intensities[i_index], potentials[p_index])
     }
 
@@ -293,13 +300,11 @@ fn field_intensity_potential(
                 potential: INFINITY,
             };
         }
-        
+
         let factor = K * stationary_charge.q / (r_sq * r);
 
-        intensity.x +=
-            factor * (x as i32 - stationary_charge.x as i32) as f64;
-        intensity.y +=
-            factor * (y as i32 - stationary_charge.y as i32) as f64;
+        intensity.x += factor * (x as i32 - stationary_charge.x as i32) as f64;
+        intensity.y += factor * (y as i32 - stationary_charge.y as i32) as f64;
         potential += K * stationary_charge.q / r;
     }
     CellData {

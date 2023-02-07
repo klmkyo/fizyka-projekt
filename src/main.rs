@@ -1,20 +1,18 @@
 use clap::Parser;
 use egui::Pos2;
-use lib::toggle;
 use macroquad::{self, prelude::*};
-use rand_chacha::ChaCha8Rng;
-use std::{fs, path::Path, time::Instant, cell, f32::INFINITY};
-extern crate rand;
+use std::{time::Instant};
 use colored::Colorize;
-use rand::{Rng, SeedableRng};
 
-pub mod cellgrid;
+mod cellgrid;   
 use cellgrid::*;
-pub mod movable_charge;
+
+mod movable_charge;
 use movable_charge::*;
 
-pub mod lib;
-use crate::lib::helpers::{ensure_files_exist, in_bounds, XY};
+mod lib;
+use lib::toggle;
+use lib::helpers::{ensure_files_exist, in_bounds, XY};
 
 enum MouseCharge {
     Positive,
@@ -37,7 +35,8 @@ fn fill_texture_with_intensity(
         for x in 0..screen_w as u32 {
             let virtual_x = (x as f64 / screen_w as f64) * cellgrid_w as f64;
             let virtual_y = (y as f64 / screen_h as f64) * cellgrid_h as f64;
-            let intensity_potential_option = field_intensity_potential(virtual_x, virtual_y, stationary_charges);
+            let intensity_potential_option =
+                field_intensity_potential(virtual_x, virtual_y, stationary_charges);
 
             let (intensity, potential) = match intensity_potential_option {
                 Some((intensity, potential)) => (intensity, potential),
@@ -55,13 +54,8 @@ fn fill_texture_with_intensity(
                     // blue
                     Color::new(0., 0., saturation, 1.0)
                 };
-                image.set_pixel(
-                    x as u32,
-                    y as u32,
-                    color,
-                );
-            }
-            else {
+                image.set_pixel(x as u32, y as u32, color);
+            } else {
                 let intensity = 100. * (intensity.abs() / intensity_percentile) as f32;
                 image.set_pixel(
                     x as u32,
@@ -105,7 +99,8 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
 
     let mut time_elapsed: f64 = 0.;
 
-    let (mut intensity_percentile, mut potential_percentile) = cellgrid.field_percentiles(percentile);
+    let (mut intensity_percentile, mut potential_percentile) =
+        cellgrid.field_percentiles(percentile);
 
     let velocity_vector_scale: f32 = 3. * 10e2;
     let acceleration_vector_scale: f64 = 1.8 * 10e6;
@@ -113,14 +108,36 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
 
     // println!("field_intenity_percentile: {}", field_intenity_percentile);
 
-    texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_percentile, potential_percentile, cellgrid_w, cellgrid_h, screen_w, screen_h);
+    texture = fill_texture_with_intensity(
+        potential_display_mode,
+        &cellgrid.stationary_charges,
+        intensity_percentile,
+        potential_percentile,
+        cellgrid_w,
+        cellgrid_h,
+        screen_w,
+        screen_h,
+    );
 
     loop {
         let (new_screen_w, new_screen_h) = (screen_width(), screen_height());
 
-        if new_screen_w != screen_w || new_screen_h != screen_h || potential_display_mode != old_potential_display_mode || percentile != old_percentile {
+        if new_screen_w != screen_w
+            || new_screen_h != screen_h
+            || potential_display_mode != old_potential_display_mode
+            || percentile != old_percentile
+        {
             (intensity_percentile, potential_percentile) = cellgrid.field_percentiles(percentile);
-            texture = fill_texture_with_intensity(potential_display_mode, &cellgrid.stationary_charges, intensity_percentile, potential_percentile, cellgrid_w, cellgrid_h, screen_w, screen_h);
+            texture = fill_texture_with_intensity(
+                potential_display_mode,
+                &cellgrid.stationary_charges,
+                intensity_percentile,
+                potential_percentile,
+                cellgrid_w,
+                cellgrid_h,
+                screen_w,
+                screen_h,
+            );
             (screen_w, screen_h) = (new_screen_w, new_screen_h);
             old_potential_display_mode = potential_display_mode;
             old_percentile = percentile;
@@ -218,7 +235,6 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                 &cellgrid.stationary_charges,
             )
             .unwrap_or(XY { x: 0., y: 0. });
-
 
             let mut end_mouse = XY {
                 x: mouse_x,
@@ -354,7 +370,14 @@ async fn macroquad_display(cellgrid: &mut CellGrid, delta_t: f64) {
                             ui.label("Pokaż wektory");
                             ui.add(toggle::toggle(&mut draw_vectors));
                             ui.end_row();
-                            ui.label("Tło: ".to_owned() + if potential_display_mode {"potencjał"} else {"natężenie pola"});
+                            ui.label(
+                                "Tło: ".to_owned()
+                                    + if potential_display_mode {
+                                        "potencjał"
+                                    } else {
+                                        "natężenie pola"
+                                    },
+                            );
                             ui.add(toggle::toggle(&mut potential_display_mode));
                             ui.end_row();
                             ui.label("Percentyl tła");

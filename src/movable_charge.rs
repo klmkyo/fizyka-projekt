@@ -1,6 +1,9 @@
 use std::fs::{self, File};
 
-use crate::{cellgrid::StationaryCharge, lib::helpers::{XY, K}};
+use crate::{
+    cellgrid::StationaryCharge,
+    lib::helpers::{K, XY},
+};
 
 pub struct MovableCharge {
     pub should_move: bool,
@@ -155,7 +158,7 @@ pub fn field_intensity_potential(
         // caused by the given stationary charge and add it to the total intensity
         // vector.
         let factor = K * stationary_charge.q / r;
-        intensity += factor / r_sq ;
+        intensity += factor / r_sq;
         potential += factor
     }
     Some((intensity, potential))
